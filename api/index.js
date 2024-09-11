@@ -4,14 +4,28 @@ const app = Fastify({
   logger: true,
 })
 
+// Define a route to test the server
+app.get('/hello', async (req, reply) => {
+  return reply.status(200).type('text/plain').send('Hello, World!')
+})
+
+// Define the root route
 app.get('/', async (req, reply) => {
   return reply.status(200).type('text/html').send(html)
 })
 
-export default async function handler(req, reply) {
-  await app.ready()
-  app.server.emit('request', req, reply)
+// Start the server
+const start = async () => {
+  try {
+    await app.listen({ port: 3000 }) // You can choose any port you prefer
+    console.log(`Server is running at http://localhost:3000`)
+  } catch (err) {
+    app.log.error(err)
+    process.exit(1)
+  }
 }
+
+start()
 
 const html = `
 <!DOCTYPE html>

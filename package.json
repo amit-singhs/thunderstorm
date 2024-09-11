@@ -3,6 +3,10 @@
   "repository": "https://github.com/vercel/examples.git",
   "license": "MIT",
   "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node api/index.js"
+  },
   "dependencies": {
     "fastify": "^4.25.2"
   }
