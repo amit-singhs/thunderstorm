@@ -17,7 +17,7 @@ app.get('/', async (req, reply) => {
 // Start the server
 const start = async () => {
   try {
-    await app.listen({ port: 3000 }) // You can choose any port you prefer
+    await app.listen({ port: 3000 }) 
     console.log(`Server is running at http://localhost:3000`)
   } catch (err) {
     app.log.error(err)
