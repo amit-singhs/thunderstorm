@@ -1,30 +1,36 @@
-import Fastify from 'fastify';
+import Fastify, { FastifyRequest, FastifyReply } from 'fastify'
+
 const app = Fastify({
-    logger: true,
-});
+  logger: true,
+})
+
 // Define a route to test the server
-app.get('/hello', async (req, reply) => {
-    return reply.status(200).type('text/plain').send('Hello, World!');
-});
-app.get('/adios', async (req, reply) => {
-    return reply.status(200).type('text/plain').send('Adios Amigos!');
-});
+app.get('/hello', async (req: FastifyRequest, reply: FastifyReply) => {
+  return reply.status(200).type('text/plain').send('Hello, World!')
+})
+
+app.get('/adios', async (req: FastifyRequest, reply: FastifyReply) => {  //<---------------------------------
+    return reply.status(200).type('text/plain').send('Adios Amigos!')
+  })
+
 // Define the root route
-app.get('/', async (req, reply) => {
-    return reply.status(200).type('text/html').send(html);
-});
+app.get('/', async (req: FastifyRequest, reply: FastifyReply) => {
+  return reply.status(200).type('text/html').send(html)
+})
+
 // Start the server
 const start = async () => {
-    try {
-        await app.listen({ port: 3000 });
-        console.log(`Server is running at http://localhost:3000`);
-    }
-    catch (err) {
-        app.log.error(err);
-        process.exit(1);
-    }
-};
-start();
+  try {
+    await app.listen({ port: 3000 }) 
+    console.log(`Server is running at http://localhost:3000`)
+  } catch (err) {
+    app.log.error(err)
+    process.exit(1)
+  }
+}
+
+start()
+
 const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -75,4 +81,4 @@ export default async function handler(req: any, res: any) {
       to get started.
   </body>
 </html>
-`;
+`
