@@ -10,7 +10,7 @@
     "dev": "npx tsx src/index.ts"
   },
   "dependencies": {
-    "fastify": "^4.25.2"
+    "fastify": "^4.28.1"
   },
   "devDependencies": {
     "@types/node": "^22.5.4",
