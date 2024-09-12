@@ -3,7 +3,6 @@
   "repository": "https://github.com/amit-singhs/fast-marlin.git",
   "license": "MIT",
   "private": true,
-  "type": "module",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "build": "tsc",

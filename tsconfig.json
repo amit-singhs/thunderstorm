@@ -1,14 +1,12 @@
 {
     "compilerOptions": {
-      "target": "ES2020",
-      "module": "ESNext",
-      "moduleResolution": "Node",
-      "outDir": "./api",
-      "rootDir": "./src",
+      "target": "ES6",
+      "module": "CommonJS",
       "strict": true,
       "esModuleInterop": true,
       "skipLibCheck": true,
-      "forceConsistentCasingInFileNames": true
+      "outDir": "./api",
+      "rootDir": "./src"
     },
     "include": ["src/**/*.ts"],
     "exclude": ["node_modules"]

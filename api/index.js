@@ -1,25 +1,42 @@
-import Fastify from 'fastify';
-import apiKeyMiddleware from "./middlewares/apiKeyAuthMiddleware";
-const app = Fastify({
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const fastify_1 = __importDefault(require("fastify"));
+const apiKeyAuthMiddleware_1 = __importDefault(require("./middlewares/apiKeyAuthMiddleware"));
+const app = (0, fastify_1.default)({
     logger: true,
 });
 // Register the middleware
-app.addHook('onRequest', apiKeyMiddleware);
+app.addHook('onRequest', apiKeyAuthMiddleware_1.default);
 // Define a route to test the server
-app.get('/hello', async (req, reply) => {
+app.get('/hello', (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
     return reply.status(200).type('text/plain').send('Hello, World!');
-});
-app.get('/welcome', async (req, reply) => {
+}));
+app.get('/welcome', (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
     return reply.status(200).type('text/plain').send('Hello Universe, we welcome you all !!');
-});
+}));
 // Define the root route
-app.get('/', async (req, reply) => {
+app.get('/', (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
     return reply.status(200).type('text/html').send(html);
-});
+}));
 // Export the Fastify instance as a Vercel function
-export default async function handler(req, res) {
-    await app.ready(); // Ensure the app is ready to handle requests
-    app.server.emit('request', req, res); // Emit the request to the Fastify instance
+function handler(req, res) {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield app.ready(); // Ensure the app is ready to handle requests
+        app.server.emit('request', req, res); // Emit the request to the Fastify instance
+    });
 }
 app.listen({ port: 3000, host: '0.0.0.0' }, (err, address) => {
     if (err) {

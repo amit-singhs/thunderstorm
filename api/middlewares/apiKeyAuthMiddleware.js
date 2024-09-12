@@ -1,5 +1,8 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.apiKeyMiddleware = void 0;
 // Middleware to check for API key
-export const apiKeyMiddleware = (request, reply, done) => {
+const apiKeyMiddleware = (request, reply, done) => {
     const apiKey = request.headers["x-api-key"];
     // Check if the API key is provided and valid
     if (!apiKey || apiKey !== process.env.API_KEY) {
@@ -7,4 +10,5 @@ export const apiKeyMiddleware = (request, reply, done) => {
     }
     done();
 };
-export default apiKeyMiddleware;
+exports.apiKeyMiddleware = apiKeyMiddleware;
+exports.default = exports.apiKeyMiddleware;
