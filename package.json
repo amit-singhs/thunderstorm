@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "build": "tsc",
     "start": "node api/index.js",
     "dev": "npx tsx src/index.ts"
