@@ -1,7 +1,10 @@
 import Fastify from 'fastify';
+import apiKeyMiddleware from "./middlewares/apiKeyAuthMiddleware";
 const app = Fastify({
     logger: true,
 });
+// Register the middleware
+app.addHook('onRequest', apiKeyMiddleware);
 // Define a route to test the server
 app.get('/hello', async (req, reply) => {
     return reply.status(200).type('text/plain').send('Hello, World!');
