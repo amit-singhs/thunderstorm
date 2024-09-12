@@ -9,8 +9,8 @@ app.get('/hello', async (req: FastifyRequest, reply: FastifyReply) => {
   return reply.status(200).type('text/plain').send('Hello, World!')
 })
 
-app.get('/adios', async (req: FastifyRequest, reply: FastifyReply) => {  //<---------------------------------
-    return reply.status(200).type('text/plain').send('Adios Amigos!')
+app.get('/welcome', async (req: FastifyRequest, reply: FastifyReply) => {  //<---------------------------------
+    return reply.status(200).type('text/plain').send('Hello Universe, we welcome you all !!')
   })
 
 // Define the root route

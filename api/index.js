@@ -6,8 +6,8 @@ const app = Fastify({
 app.get('/hello', async (req, reply) => {
     return reply.status(200).type('text/plain').send('Hello, World!');
 });
-app.get('/adios', async (req, reply) => {
-    return reply.status(200).type('text/plain').send('Adios Amigos!');
+app.get('/welcome', async (req, reply) => {
+    return reply.status(200).type('text/plain').send('Hello Universe, we welcome you all !!');
 });
 // Define the root route
 app.get('/', async (req, reply) => {
