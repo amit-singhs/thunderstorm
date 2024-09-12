@@ -18,6 +18,13 @@ export default async function handler(req, res) {
     await app.ready(); // Ensure the app is ready to handle requests
     app.server.emit('request', req, res); // Emit the request to the Fastify instance
 }
+app.listen({ port: 3000, host: '0.0.0.0' }, (err, address) => {
+    if (err) {
+        app.log.error(err);
+        process.exit(1);
+    }
+    app.log.info(`Server listening at ${address}`);
+});
 // HTML content
 const html = `
 <!DOCTYPE html>
