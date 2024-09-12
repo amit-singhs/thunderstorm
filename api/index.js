@@ -13,18 +13,12 @@ app.get('/welcome', async (req, reply) => {
 app.get('/', async (req, reply) => {
     return reply.status(200).type('text/html').send(html);
 });
-// Start the server
-const start = async () => {
-    try {
-        await app.listen({ port: 3000 });
-        console.log(`Server is running at http://localhost:3000`);
-    }
-    catch (err) {
-        app.log.error(err);
-        process.exit(1);
-    }
-};
-start();
+// Export the Fastify instance as a Vercel function
+export default async function handler(req, res) {
+    await app.ready(); // Ensure the app is ready to handle requests
+    app.server.emit('request', req, res); // Emit the request to the Fastify instance
+}
+// HTML content
 const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -67,7 +61,6 @@ export default async function handler(req: any, res: any) {
   app.server.emit('request', req, res)
 }</code>
     </pre>
-    <p>
     <p>
       <a href="https://vercel.com/templates/other/fastify-serverless-function">
       Deploy your own

@@ -1,36 +1,30 @@
-import Fastify, { FastifyRequest, FastifyReply } from 'fastify'
+import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
 
 const app = Fastify({
   logger: true,
-})
+});
 
 // Define a route to test the server
 app.get('/hello', async (req: FastifyRequest, reply: FastifyReply) => {
-  return reply.status(200).type('text/plain').send('Hello, World!')
-})
+  return reply.status(200).type('text/plain').send('Hello, World!');
+});
 
-app.get('/welcome', async (req: FastifyRequest, reply: FastifyReply) => {  //<---------------------------------
-    return reply.status(200).type('text/plain').send('Hello Universe, we welcome you all !!')
-  })
+app.get('/welcome', async (req: FastifyRequest, reply: FastifyReply) => {
+  return reply.status(200).type('text/plain').send('Hello Universe, we welcome you all !!');
+});
 
 // Define the root route
 app.get('/', async (req: FastifyRequest, reply: FastifyReply) => {
-  return reply.status(200).type('text/html').send(html)
-})
+  return reply.status(200).type('text/html').send(html);
+});
 
-// Start the server
-const start = async () => {
-  try {
-    await app.listen({ port: 3000 }) 
-    console.log(`Server is running at http://localhost:3000`)
-  } catch (err) {
-    app.log.error(err)
-    process.exit(1)
-  }
+// Export the Fastify instance as a Vercel function
+export default async function handler(req: FastifyRequest, res: FastifyReply) {
+  await app.ready(); // Ensure the app is ready to handle requests
+  app.server.emit('request', req, res); // Emit the request to the Fastify instance
 }
 
-start()
-
+// HTML content
 const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -74,11 +68,10 @@ export default async function handler(req: any, res: any) {
 }</code>
     </pre>
     <p>
-    <p>
       <a href="https://vercel.com/templates/other/fastify-serverless-function">
       Deploy your own
       </a>
       to get started.
   </body>
 </html>
-`
+`;
