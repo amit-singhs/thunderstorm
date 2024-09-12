@@ -18,21 +18,25 @@ const apiKeyAuthMiddleware_1 = __importDefault(require("./middlewares/apiKeyAuth
 const jsonwebtoken_1 = require("jsonwebtoken");
 const supabaseClient_1 = __importDefault(require("./supabaseClient"));
 const jwtUtils_1 = require("./utils/jwtUtils");
+const emailUtils_1 = require("./utils/emailUtils");
 const app = (0, fastify_1.default)({
     logger: true,
 });
 // Register the middleware
-app.addHook('onRequest', apiKeyAuthMiddleware_1.default);
+app.addHook("onRequest", apiKeyAuthMiddleware_1.default);
 // Define a route to test the server
-app.get('/hello', (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    return reply.status(200).type('text/plain').send('Hello, World!');
+app.get("/hello", (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    return reply.status(200).type("text/plain").send("Hello, World!");
 }));
-app.get('/welcome', (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    return reply.status(200).type('text/plain').send('Hello Universe, we welcome you all !!');
+app.get("/welcome", (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    return reply
+        .status(200)
+        .type("text/plain")
+        .send("Hello Universe, we welcome you all !!");
 }));
 // Define the root route
-app.get('/', (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    return reply.status(200).type('text/html').send(html);
+app.get("/", (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    return reply.status(200).type("text/html").send(html);
 }));
 // The email route
 app.post("/email", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
@@ -99,14 +103,96 @@ app.post("/email", (request, reply) => __awaiter(void 0, void 0, void 0, functio
         }
     }
 }));
+app.post("/send-verification", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    const { email } = request.body;
+    if (!email) {
+        return reply.status(400).send({ error: "Email is required" });
+    }
+    // Generate a token
+    const token = (0, jwtUtils_1.generateToken)({ email }, "1h");
+    // Insert the email and token in Supabase
+    const { error: supabaseError } = yield supabaseClient_1.default
+        .from("email_verification")
+        .insert([{ email, token }])
+        .select();
+    if (supabaseError) {
+        return reply.status(500).send({
+            error: "Error updating or inserting email into Supabase",
+            details: supabaseError.message,
+        });
+    }
+    // Create the verification link
+    const verificationLink = `http://localhost:3000/verify-email/${email}/${token}`;
+    const subject = "Email Verification";
+    const text = `Please verify your email by clicking on the following link: ${verificationLink}`;
+    try {
+        // Send the verification email
+        yield (0, emailUtils_1.sendEmail)(email, subject, text);
+        return reply.send({
+            status: "success",
+            message: "Verification email sent",
+        });
+    }
+    catch (mailError) {
+        return reply.status(500).send({
+            error: "Error sending verification email",
+            details: mailError,
+        });
+    }
+}));
+app.get("/verify-email/:email/:token", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    const { email, token } = request.params;
+    // Check if email exists
+    const { data: existingData, error: fetchError } = yield supabaseClient_1.default
+        .from("email_verification")
+        .select("*")
+        .eq("email", email)
+        .single();
+    if (fetchError || !existingData) {
+        return reply.status(404).send({ error: "Email not found" });
+    }
+    // Check if token matches
+    if (existingData.token !== token) {
+        return reply.status(400).send({ error: "Faulty token" });
+    }
+    // Check token expiration
+    try {
+        const decodedToken = (0, jwtUtils_1.verifyToken)(token);
+        if (decodedToken.exp === undefined) {
+            return reply
+                .status(400)
+                .send({ error: "Token does not have an expiration time" });
+        }
+        if (decodedToken.exp * 1000 < Date.now()) {
+            return reply.status(400).send({
+                error: "Token is expired, please resend verification link",
+            });
+        }
+        // Token is still valid, update 'verified' flag
+        const { error: updateError } = yield supabaseClient_1.default
+            .from("email_verification")
+            .update({ verified: true })
+            .eq("email", email)
+            .select();
+        if (updateError) {
+            return reply
+                .status(500)
+                .send({ error: "Failed to update verification status" });
+        }
+        return reply.send({ status: "success", data: existingData });
+    }
+    catch (error) {
+        return reply.status(401).send({ error: "Invalid token" });
+    }
+}));
 // Export the Fastify instance as a Vercel function
 function handler(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
         yield app.ready(); // Ensure the app is ready to handle requests
-        app.server.emit('request', req, res); // Emit the request to the Fastify instance
+        app.server.emit("request", req, res); // Emit the request to the Fastify instance
     });
 }
-app.listen({ port: 3000, host: '0.0.0.0' }, (err, address) => {
+app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
     if (err) {
         app.log.error(err);
         process.exit(1);
