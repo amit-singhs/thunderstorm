@@ -21,6 +21,7 @@ const jwtUtils_1 = require("./utils/jwtUtils");
 const emailUtils_1 = require("./utils/emailUtils");
 const app = (0, fastify_1.default)({
     logger: true,
+    maxParamLength: 300,
 });
 // Register the middleware
 app.addHook("onRequest", apiKeyAuthMiddleware_1.default);

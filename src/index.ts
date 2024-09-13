@@ -11,6 +11,7 @@ interface EmailRequestBody {
 
 const app = Fastify({
   logger: true,
+  maxParamLength: 300,
 });
 
 // Register the middleware
