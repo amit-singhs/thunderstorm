@@ -4,6 +4,7 @@ import { JwtPayload, TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
 import supabase from "./supabaseClient";
 import { generateToken, verifyToken } from "./utils/jwtUtils";
 import { sendEmail } from "./utils/emailUtils";
+import rateLimit from "@fastify/rate-limit";
 
 interface EmailRequestBody {
   email?: string;
@@ -12,6 +13,16 @@ interface EmailRequestBody {
 const app = Fastify({
   logger: true,
   maxParamLength: 300,
+});
+
+// Register the rate limiting plugin first
+app.register(rateLimit, {
+  max: 1, // Maximum 1 requests
+  timeWindow: "1 minute", // Per minute
+  keyGenerator: (request) => {
+    return request.ip; // Rate limit based on the client's IP address
+  },
+  global: false, // Apply to all routes
 });
 
 // Register the middleware
@@ -163,31 +174,43 @@ app.post(
 
 app.get(
   "/verify-email/:email/:token",
+  {
+    config: {
+      rateLimit: {
+        max: 1, // Maximum 1 requests
+        timeWindow: "1 minute", // Per minute
+      },
+    },
+  },
   async (
     request: FastifyRequest<{ Params: { email: string; token: string } }>,
     reply: FastifyReply
   ) => {
     const { email, token } = request.params;
 
-    // Check if email exists
-    const { data: existingData, error: fetchError } = await supabase
-      .from("email_verification")
-      .select("*")
-      .eq("email", email)
-      .single();
-
-    if (fetchError || !existingData) {
-      return reply.status(404).send({ error: "Email not found" });
-    }
-
-    // Check if token matches
-    if (existingData.token !== token) {
-      return reply.status(400).send({ error: "Faulty token" });
-    }
-
-    // Check token expiration
     try {
-      const decodedToken = verifyToken(token) as unknown as JwtPayload;
+      // Check if email exists
+      const { data: existingData, error: fetchError } = await supabase
+        .from("email_verification")
+        .select("*")
+        .eq("email", email)
+        .single();
+
+      if (fetchError || !existingData) {
+        return reply.status(404).send({ error: "Email not found" });
+      }
+
+      if(existingData.verified) {
+        return reply.status(400).send({ error: "Email is already verified, please proceed to use the app." });
+      }
+
+      // Check if token matches
+      if (existingData.token !== token) {
+        return reply.status(400).send({ error: "Faulty token" });
+      }
+
+      // Check token expiration
+      const decodedToken = (await verifyToken(token)) as JwtPayload;
 
       if (decodedToken.exp === undefined) {
         return reply
@@ -202,7 +225,7 @@ app.get(
       }
 
       // Token is still valid, update 'verified' flag
-      const { error: updateError } = await supabase
+      const { data: updatedData, error: updateError } = await supabase
         .from("email_verification")
         .update({ verified: true })
         .eq("email", email)
@@ -214,9 +237,17 @@ app.get(
           .send({ error: "Failed to update verification status" });
       }
 
-      return reply.send({ status: "success", data: existingData });
+      return reply.send({ status: "success", data: updatedData });
     } catch (error) {
-      return reply.status(401).send({ error: "Invalid token" });
+      // Handle specific token errors
+      if (error instanceof TokenExpiredError) {
+        return reply.status(401).send({
+          error:
+            "The token is expired, please request another verification link.",
+        });
+      }
+      // Handle other potential errors
+      return reply.status(500).send({ error: "Internal Server Error" });
     }
   }
 );

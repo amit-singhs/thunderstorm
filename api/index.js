@@ -19,9 +19,19 @@ const jsonwebtoken_1 = require("jsonwebtoken");
 const supabaseClient_1 = __importDefault(require("./supabaseClient"));
 const jwtUtils_1 = require("./utils/jwtUtils");
 const emailUtils_1 = require("./utils/emailUtils");
+const rate_limit_1 = __importDefault(require("@fastify/rate-limit"));
 const app = (0, fastify_1.default)({
     logger: true,
     maxParamLength: 300,
+});
+// Register the rate limiting plugin first
+app.register(rate_limit_1.default, {
+    max: 1, // Maximum 1 requests
+    timeWindow: "1 minute", // Per minute
+    keyGenerator: (request) => {
+        return request.ip; // Rate limit based on the client's IP address
+    },
+    global: false, // Apply to all routes
 });
 // Register the middleware
 app.addHook("onRequest", apiKeyAuthMiddleware_1.default);
@@ -141,24 +151,34 @@ app.post("/send-verification", (request, reply) => __awaiter(void 0, void 0, voi
         });
     }
 }));
-app.get("/verify-email/:email/:token", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+app.get("/verify-email/:email/:token", {
+    config: {
+        rateLimit: {
+            max: 1, // Maximum 1 requests
+            timeWindow: "1 minute", // Per minute
+        },
+    },
+}, (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
     const { email, token } = request.params;
-    // Check if email exists
-    const { data: existingData, error: fetchError } = yield supabaseClient_1.default
-        .from("email_verification")
-        .select("*")
-        .eq("email", email)
-        .single();
-    if (fetchError || !existingData) {
-        return reply.status(404).send({ error: "Email not found" });
-    }
-    // Check if token matches
-    if (existingData.token !== token) {
-        return reply.status(400).send({ error: "Faulty token" });
-    }
-    // Check token expiration
     try {
-        const decodedToken = (0, jwtUtils_1.verifyToken)(token);
+        // Check if email exists
+        const { data: existingData, error: fetchError } = yield supabaseClient_1.default
+            .from("email_verification")
+            .select("*")
+            .eq("email", email)
+            .single();
+        if (fetchError || !existingData) {
+            return reply.status(404).send({ error: "Email not found" });
+        }
+        if (existingData.verified) {
+            return reply.status(400).send({ error: "Email is already verified, please proceed to use the app." });
+        }
+        // Check if token matches
+        if (existingData.token !== token) {
+            return reply.status(400).send({ error: "Faulty token" });
+        }
+        // Check token expiration
+        const decodedToken = (yield (0, jwtUtils_1.verifyToken)(token));
         if (decodedToken.exp === undefined) {
             return reply
                 .status(400)
@@ -170,7 +190,7 @@ app.get("/verify-email/:email/:token", (request, reply) => __awaiter(void 0, voi
             });
         }
         // Token is still valid, update 'verified' flag
-        const { error: updateError } = yield supabaseClient_1.default
+        const { data: updatedData, error: updateError } = yield supabaseClient_1.default
             .from("email_verification")
             .update({ verified: true })
             .eq("email", email)
@@ -180,10 +200,17 @@ app.get("/verify-email/:email/:token", (request, reply) => __awaiter(void 0, voi
                 .status(500)
                 .send({ error: "Failed to update verification status" });
         }
-        return reply.send({ status: "success", data: existingData });
+        return reply.send({ status: "success", data: updatedData });
     }
     catch (error) {
-        return reply.status(401).send({ error: "Invalid token" });
+        // Handle specific token errors
+        if (error instanceof jsonwebtoken_1.TokenExpiredError) {
+            return reply.status(401).send({
+                error: "The token is expired, please request another verification link.",
+            });
+        }
+        // Handle other potential errors
+        return reply.status(500).send({ error: "Internal Server Error" });
     }
 }));
 // Export the Fastify instance as a Vercel function

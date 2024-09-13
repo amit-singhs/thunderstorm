@@ -6,9 +6,13 @@ export const apiKeyMiddleware = (
   reply: FastifyReply,
   done: () => void
 ) => {
+  console.log("API Key Middleware, request.raw.url is ***************** : ", request.raw.url);
+  
+  // Skip the middleware for the verification route
   if (request.raw.url?.startsWith("/verify-email/")) {
-    return; // Skip the middleware for this route
+    return done(); // Return early if it matches
   }
+  
   const apiKey = request.headers["x-api-key"];
 
   // Check if the API key is provided and valid
