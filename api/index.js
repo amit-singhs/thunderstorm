@@ -114,6 +114,62 @@ app.post("/email", (request, reply) => __awaiter(void 0, void 0, void 0, functio
         }
     }
 }));
+app.post("/update-token", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    const { email } = request.body;
+    // Check if the email is provided
+    if (!email) {
+        return reply.status(400).send({ error: "Email is required" });
+    }
+    // Query Supabase for the email
+    const { data: existingData, error: fetchError } = yield supabaseClient_1.default
+        .from("email_verification")
+        .select("*")
+        .eq("email", email)
+        .single();
+    if (fetchError && fetchError.code !== "PGRST116") {
+        // Handle errors other than 'no rows found'
+        return reply.status(500).send({
+            error: "Error fetching email data",
+            details: fetchError.message,
+        });
+    }
+    if (fetchError && fetchError.code === "PGRST116") {
+        // Email not found
+        return reply
+            .status(404)
+            .send({ error: "Email not registered in the app." });
+    }
+    if (existingData) {
+        // Check if the email is verified
+        if (!existingData.verified) {
+            return reply.status(403).send({
+                error: "The email is not verified, hence token cannot be updated.",
+            });
+        }
+        // Generate a new token
+        try {
+            const newToken = (0, jwtUtils_1.generateToken)({ email }, "1h");
+            // Update Supabase with the new token
+            const { data: updatedData, error: updateError } = yield supabaseClient_1.default
+                .from("email_verification")
+                .update({ token: newToken })
+                .eq("email", email)
+                .select();
+            if (updateError) {
+                return reply.status(500).send({
+                    error: "Error updating token",
+                    details: updateError.message,
+                });
+            }
+            // Send the response with the updated data
+            return reply.send({ status: "success", data: updatedData });
+        }
+        catch (error) {
+            console.error("Unexpected error while generating token:", error);
+            return reply.status(500).send({ error: "Internal Server Error" });
+        }
+    }
+}));
 app.post("/send-verification", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
     const { email } = request.body;
     if (!email) {
@@ -171,7 +227,9 @@ app.get("/verify-email/:email/:token", {
             return reply.status(404).send({ error: "Email not found" });
         }
         if (existingData.verified) {
-            return reply.status(400).send({ error: "Email is already verified, please proceed to use the app." });
+            return reply.status(400).send({
+                error: "Email is already verified, please proceed to use the app.",
+            });
         }
         // Check if token matches
         if (existingData.token !== token) {
