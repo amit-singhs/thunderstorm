@@ -1,5 +1,11 @@
 import jwt from 'jsonwebtoken';
 
+
+type UserPaylod = {
+  id: string;
+  email: string;
+}; 
+
 const getSecret = () => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {

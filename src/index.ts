@@ -45,11 +45,11 @@ app.get("/", async (req: FastifyRequest, reply: FastifyReply) => {
   return reply.status(200).type("text/html").send(html);
 });
 
-// The email route
+// The login route, through email
 app.post(
-  "/email",
+  "/login",
   async (
-    request: FastifyRequest<{ Body: EmailRequestBody }>,
+    request: FastifyRequest<{ Body: EmailRequestBody}>,
     reply: FastifyReply
   ) => {
     const { email } = request.body;
@@ -88,32 +88,16 @@ app.post(
         });
       }
 
-      // Check if the token is expired
+      // Send a new token to the client
+      let newToken = "";
       try {
-        // Await the promise returned by verifyToken
-        const decodedToken: JwtPayload = await verifyToken(existingData.token);
-        // Check if token has an expiration time
-        if (decodedToken.exp === undefined) {
-          return reply
-            .status(401)
-            .send({ error: "Token does not have an expiration time" });
-        }
-
-        // Check if the token has expired
-        if (decodedToken.exp * 1000 < Date.now()) {
-          return reply.status(401).send({
-            error: "Email was sent already, but the JWT token has expired",
-          });
-        }
-
+          newToken = generateToken({ email, id: existingData.id }, "1h"); 
+          return reply.send({ status: "success", data: newToken });
         // If everything is okay, send success response
-        return reply.send({ status: "success", data: existingData });
       } catch (error) {
         // Handle different types of JWT errors
-        if (error instanceof TokenExpiredError) {
-          return reply.status(401).send({ error: "Token has expired" });
-        } else if (error instanceof JsonWebTokenError) {
-          return reply.status(401).send({ error: "Invalid token" });
+        if (error instanceof JsonWebTokenError) {
+          return reply.status(401).send({ error: "There was an erro while creation of the jwt token" });
         } else {
           console.error("Unexpected error: ", error);
           return reply.status(500).send({ error: "Internal Server Error" });
