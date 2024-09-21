@@ -6,7 +6,6 @@ export const apiKeyMiddleware = (
   reply: FastifyReply,
   done: () => void
 ) => {
-  console.log("API Key Middleware, request.raw.url is ***************** : ", request.raw.url);
   
   // Skip the middleware for the verification route
   if (request.raw.url?.startsWith("/verify-email/")) {
