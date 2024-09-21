@@ -5,6 +5,7 @@ import supabase from "./supabaseClient";
 import { generateToken, verifyToken } from "./utils/jwtUtils";
 import { sendEmail } from "./utils/emailUtils";
 import rateLimit from "@fastify/rate-limit";
+import fastifyCookie from '@fastify/cookie';
 
 interface EmailRequestBody {
   email?: string;
@@ -27,6 +28,7 @@ app.register(rateLimit, {
 
 // Register the middleware
 app.addHook("onRequest", apiKeyMiddleware);
+app.register(fastifyCookie);
 
 // Define a route to test the server
 app.get("/hello", async (req: FastifyRequest, reply: FastifyReply) => {
@@ -49,7 +51,7 @@ app.get("/", async (req: FastifyRequest, reply: FastifyReply) => {
 app.post(
   "/login",
   async (
-    request: FastifyRequest<{ Body: EmailRequestBody}>,
+    request: FastifyRequest<{ Body: { email: string } }>,
     reply: FastifyReply
   ) => {
     const { email } = request.body;
@@ -58,7 +60,6 @@ app.post(
       return reply.status(400).send({ error: "Email is required" });
     }
 
-    // Check if the email exists in the database
     const { data: existingData, error: fetchError } = await supabase
       .from("email_verification")
       .select("*")
@@ -66,7 +67,6 @@ app.post(
       .single();
 
     if (fetchError && fetchError.code !== "PGRST116") {
-      // 'PGRST116' means no rows found
       return reply.status(500).send({
         error: "Error fetching email data",
         details: fetchError.message,
@@ -76,32 +76,32 @@ app.post(
     if (fetchError && fetchError.code === "PGRST116") {
       return reply
         .status(404)
-        .send({ error: "Email not registrered in the app." });
+        .send({ error: "Email not registered in the app." });
     }
 
     if (existingData) {
-      // Check if email is verified
       if (!existingData.verified) {
         return reply.status(403).send({
-          error:
-            "The email is not verified, please verify by clicking on the verification link sent to your email.",
+          error: "The email is not verified.",
         });
       }
 
-      // Send a new token to the client
       let newToken = "";
       try {
-          newToken = generateToken({ email, id: existingData.id }, "1h"); 
-          return reply.send({ status: "success", data: newToken });
-        // If everything is okay, send success response
+        newToken = generateToken({ email, id: existingData.id }, "1h");
+        
+        // Set the cookie
+        reply.setCookie('access-token', newToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production', // Set to true in production
+          path: '/', // Make cookie accessible in all routes
+          sameSite: 'lax', // CSRF protection
+        });
+
+        return reply.send({ status: "success" });
       } catch (error) {
-        // Handle different types of JWT errors
-        if (error instanceof JsonWebTokenError) {
-          return reply.status(401).send({ error: "There was an erro while creation of the jwt token" });
-        } else {
-          console.error("Unexpected error: ", error);
-          return reply.status(500).send({ error: "Internal Server Error" });
-        }
+        console.error("Token generation error: ", error);
+        return reply.status(500).send({ error: "Internal Server Error" });
       }
     }
   }
