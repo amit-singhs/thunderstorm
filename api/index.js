@@ -58,7 +58,7 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
         return reply.status(400).send({ error: "Email is required" });
     }
     const { data: existingData, error: fetchError } = yield supabaseClient_1.default
-        .from("email_verification")
+        .from("users")
         .select("*")
         .eq("email", email)
         .single();
@@ -105,7 +105,7 @@ app.post("/update-token", (request, reply) => __awaiter(void 0, void 0, void 0, 
     }
     // Query Supabase for the email
     const { data: existingData, error: fetchError } = yield supabaseClient_1.default
-        .from("email_verification")
+        .from("users")
         .select("*")
         .eq("email", email)
         .single();
@@ -134,7 +134,7 @@ app.post("/update-token", (request, reply) => __awaiter(void 0, void 0, void 0, 
             const newToken = (0, jwtUtils_1.generateToken)({ email }, "1h");
             // Update Supabase with the new token
             const { data: updatedData, error: updateError } = yield supabaseClient_1.default
-                .from("email_verification")
+                .from("users")
                 .update({ token: newToken })
                 .eq("email", email)
                 .select();
@@ -162,7 +162,7 @@ app.post("/send-verification", (request, reply) => __awaiter(void 0, void 0, voi
     const token = (0, jwtUtils_1.generateToken)({ email }, "1h");
     // Insert the email and token in Supabase
     const { error: supabaseError } = yield supabaseClient_1.default
-        .from("email_verification")
+        .from("users")
         .insert([{ email, token }])
         .select();
     if (supabaseError) {
@@ -202,7 +202,7 @@ app.get("/verify-email/:email/:token", {
     try {
         // Check if email exists
         const { data: existingData, error: fetchError } = yield supabaseClient_1.default
-            .from("email_verification")
+            .from("users")
             .select("*")
             .eq("email", email)
             .single();
@@ -232,7 +232,7 @@ app.get("/verify-email/:email/:token", {
         }
         // Token is still valid, update 'verified' flag
         const { data: updatedData, error: updateError } = yield supabaseClient_1.default
-            .from("email_verification")
+            .from("users")
             .update({ verified: true })
             .eq("email", email)
             .select();

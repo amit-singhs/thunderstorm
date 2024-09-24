@@ -61,7 +61,7 @@ app.post(
     }
 
     const { data: existingData, error: fetchError } = await supabase
-      .from("email_verification")
+      .from("users")
       .select("*")
       .eq("email", email)
       .single();
@@ -122,7 +122,7 @@ app.post(
 
     // Query Supabase for the email
     const { data: existingData, error: fetchError } = await supabase
-      .from("email_verification")
+      .from("users")
       .select("*")
       .eq("email", email)
       .single();
@@ -156,7 +156,7 @@ app.post(
 
         // Update Supabase with the new token
         const { data: updatedData, error: updateError } = await supabase
-          .from("email_verification")
+          .from("users")
           .update({ token: newToken })
           .eq("email", email)
           .select();
@@ -195,7 +195,7 @@ app.post(
 
     // Insert the email and token in Supabase
     const { error: supabaseError } = await supabase
-      .from("email_verification")
+      .from("users")
       .insert([{ email, token }])
       .select();
 
@@ -246,7 +246,7 @@ app.get(
     try {
       // Check if email exists
       const { data: existingData, error: fetchError } = await supabase
-        .from("email_verification")
+        .from("users")
         .select("*")
         .eq("email", email)
         .single();
@@ -283,7 +283,7 @@ app.get(
 
       // Token is still valid, update 'verified' flag
       const { data: updatedData, error: updateError } = await supabase
-        .from("email_verification")
+        .from("users")
         .update({ verified: true })
         .eq("email", email)
         .select();
