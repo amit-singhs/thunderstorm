@@ -83,11 +83,11 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
         try {
             newToken = (0, jwtUtils_1.generateToken)({ email, id: existingData.id }, "1h");
             // Set the cookie
-            reply.setCookie('access-token', newToken, {
+            reply.setCookie("access-token", newToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production', // Set to true in production
-                path: '/', // Make cookie accessible in all routes
-                sameSite: 'lax', // CSRF protection
+                secure: process.env.NODE_ENV === "production", // Set to true in production
+                path: "/", // Make cookie accessible in all routes
+                sameSite: "lax", // CSRF protection
             });
             return reply.send({ status: "success" });
         }
@@ -251,6 +251,340 @@ app.get("/verify-email/:email/:token", {
             });
         }
         // Handle other potential errors
+        return reply.status(500).send({ error: "Internal Server Error" });
+    }
+}));
+// Define the route
+app.post("/upsert-testator", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    // Extract the Authorization header
+    const authHeader = request.headers["authorization"];
+    if (!authHeader) {
+        return reply
+            .status(401)
+            .send({ error: "Authorization header is missing" });
+    }
+    // Check if the Authorization header has the Bearer token
+    const token = authHeader.split(" ")[1];
+    if (!token) {
+        return reply.status(401).send({ error: "Bearer token is missing" });
+    }
+    // Decode and verify the token
+    let decodedToken;
+    try {
+        decodedToken = yield (0, jwtUtils_1.verifyToken)(token); // Replace with your actual secret key
+    }
+    catch (err) {
+        return reply.status(401).send({ error: "Invalid token" });
+    }
+    // Extract user ID from the token
+    const userId = decodedToken.id;
+    if (!userId) {
+        return reply.status(401).send({ error: "Invalid token payload" });
+    }
+    // Extract and validate the request body
+    const { full_name, father_name, date_of_birth, nationality, address, will_declaration, } = request.body;
+    if (!full_name ||
+        !father_name ||
+        !date_of_birth ||
+        !nationality ||
+        !address ||
+        !will_declaration) {
+        return reply
+            .status(400)
+            .send({ error: "Missing required fields in the request body" });
+    }
+    // Parse the date_of_birth to a date object
+    const parsedDate = new Date(date_of_birth);
+    if (isNaN(parsedDate.getTime())) {
+        return reply.status(400).send({ error: "Invalid date_of_birth format" });
+    }
+    // Prepare the data to upsert
+    const upsertData = {
+        user_id: userId,
+        full_name,
+        father_name,
+        date_of_birth: parsedDate.toISOString().split("T")[0], // Format as 'YYYY-MM-DD'
+        nationality,
+        address,
+        will_declaration,
+    };
+    try {
+        // Perform the upsert operation
+        const { data, error } = yield supabaseClient_1.default
+            .from("testators")
+            .upsert(upsertData, { onConflict: "user_id" }) // Upsert based on user_id
+            .select();
+        if (error) {
+            console.error("Supabase error:", error);
+            return reply
+                .status(500)
+                .send({ error: "Database error", details: error.message });
+        }
+        // Return the inserted/updated data
+        return reply.status(200).send({ status: "success", id: data[0].id });
+    }
+    catch (err) {
+        console.error("Server error:", err);
+        return reply.status(500).send({ error: "Internal Server Error" });
+    }
+}));
+app.post("/upsert-executor", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    // Extract the Authorization header
+    const authHeader = request.headers["authorization"];
+    if (!authHeader) {
+        return reply
+            .status(401)
+            .send({ error: "Authorization header is missing" });
+    }
+    // Check if the Authorization header has the Bearer token
+    const tokenParts = authHeader.split(" ");
+    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
+        return reply.status(401).send({ error: "Bearer token is missing" });
+    }
+    const token = tokenParts[1];
+    // Decode and verify the token
+    let decodedToken;
+    try {
+        decodedToken = yield (0, jwtUtils_1.verifyToken)(token); // Replace with your actual secret key
+    }
+    catch (err) {
+        return reply.status(401).send({ error: "Invalid token" });
+    }
+    // Extract user ID from the token
+    const userId = decodedToken.id;
+    if (!userId) {
+        return reply.status(401).send({ error: "Invalid token payload" });
+    }
+    // Extract and validate the request body
+    const { full_name, father_name, date_of_birth, nationality, address, consent, } = request.body;
+    if (!full_name ||
+        !father_name ||
+        !date_of_birth ||
+        !nationality ||
+        !address ||
+        consent === undefined) {
+        return reply.status(400).send({
+            error: "Missing required fields in the request body",
+        });
+    }
+    // Validate the consent field
+    if (typeof consent !== "string") {
+        return reply.status(400).send({
+            error: "Invalid consent value; it should be a boolean",
+        });
+    }
+    // Parse the date_of_birth to a date object
+    const parsedDate = new Date(date_of_birth);
+    if (isNaN(parsedDate.getTime())) {
+        return reply.status(400).send({ error: "Invalid date_of_birth format" });
+    }
+    // Prepare the data to upsert
+    const upsertData = {
+        user_id: userId,
+        full_name,
+        father_name,
+        date_of_birth: parsedDate.toISOString().split("T")[0], // Format as 'YYYY-MM-DD'
+        nationality,
+        address,
+        consent,
+    };
+    try {
+        // Perform the upsert operation
+        const { data, error } = yield supabaseClient_1.default
+            .from("executors")
+            .upsert(upsertData, { onConflict: "user_id" }) // Upsert based on user_id
+            .select();
+        if (error) {
+            console.error("Supabase error:", error);
+            return reply.status(500).send({
+                error: "Database error",
+                details: error.message,
+            });
+        }
+        // Check if data was returned
+        if (data && data.length > 0) {
+            return reply.status(200).send({ status: "success", id: data[0].id });
+        }
+        else {
+            return reply
+                .status(500)
+                .send({ error: "Failed to upsert executor data" });
+        }
+    }
+    catch (err) {
+        console.error("Server error:", err);
+        return reply.status(500).send({ error: "Internal Server Error" });
+    }
+}));
+// Define the route
+app.post("/upsert-beneficiary", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    // Extract the Authorization header
+    const authHeader = request.headers["authorization"];
+    if (!authHeader) {
+        return reply
+            .status(401)
+            .send({ error: "Authorization header is missing" });
+    }
+    // Check if the Authorization header has the Bearer token
+    const tokenParts = authHeader.split(" ");
+    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
+        return reply.status(401).send({ error: "Bearer token is missing" });
+    }
+    const token = tokenParts[1];
+    // Decode and verify the token
+    let decodedToken;
+    try {
+        decodedToken = yield (0, jwtUtils_1.verifyToken)(token); // Replace with your actual secret key
+    }
+    catch (err) {
+        return reply.status(401).send({ error: "Invalid token" });
+    }
+    // Extract user ID from the token
+    const userId = decodedToken.id;
+    if (!userId) {
+        return reply.status(401).send({ error: "Invalid token payload" });
+    }
+    // Extract and validate the request body
+    const { id, // Optional, for upserting existing beneficiaries
+    full_name, father_name, date_of_birth, relationship_with_testator, address, share, } = request.body;
+    if (!full_name ||
+        !father_name ||
+        !date_of_birth ||
+        !relationship_with_testator ||
+        !address ||
+        share === undefined) {
+        return reply.status(400).send({
+            error: "Missing required fields in the request body",
+        });
+    }
+    // Parse the date_of_birth to a date object
+    const parsedDate = new Date(date_of_birth);
+    if (isNaN(parsedDate.getTime())) {
+        return reply.status(400).send({ error: "Invalid date_of_birth format" });
+    }
+    // Prepare the data to upsert
+    const upsertData = {
+        user_id: userId,
+        full_name,
+        father_name,
+        date_of_birth: parsedDate.toISOString().split("T")[0], // Format as 'YYYY-MM-DD'
+        relationship_with_testator,
+        address,
+        share,
+    };
+    // Include the id if it's provided
+    if (id) {
+        upsertData.id = id;
+    }
+    try {
+        // Perform the upsert operation
+        const { data, error } = yield supabaseClient_1.default
+            .from("beneficiaries")
+            .upsert(upsertData, { onConflict: "id" }) // Upsert based on id
+            .select();
+        if (error) {
+            console.error("Supabase error:", error);
+            return reply.status(500).send({
+                error: "Database error",
+                details: error.message,
+            });
+        }
+        // Check if data was returned
+        if (data && data.length > 0) {
+            return reply.status(200).send({ status: "success", id: data[0].id });
+        }
+        else {
+            return reply
+                .status(500)
+                .send({ error: "Failed to upsert beneficiary data" });
+        }
+    }
+    catch (err) {
+        console.error("Server error:", err);
+        return reply.status(500).send({ error: "Internal Server Error" });
+    }
+}));
+// Define the route
+app.post("/upsert-witness", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    // Extract the Authorization header
+    const authHeader = request.headers["authorization"];
+    if (!authHeader) {
+        return reply
+            .status(401)
+            .send({ error: "Authorization header is missing" });
+    }
+    // Check if the Authorization header has the Bearer token
+    const tokenParts = authHeader.split(" ");
+    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
+        return reply.status(401).send({ error: "Bearer token is missing" });
+    }
+    const token = tokenParts[1];
+    // Decode and verify the token
+    let decodedToken;
+    try {
+        decodedToken = yield (0, jwtUtils_1.verifyToken)(token); // Replace with your actual secret key
+    }
+    catch (err) {
+        return reply.status(401).send({ error: "Invalid token" });
+    }
+    // Extract user ID from the token
+    const userId = decodedToken.id;
+    if (!userId) {
+        return reply.status(401).send({ error: "Invalid token payload" });
+    }
+    // Extract and validate the request body
+    const { id, // Optional, for upserting existing witnesses
+    full_name, father_name, address, contact, email, } = request.body;
+    if (!full_name || !father_name || !address || !contact || !email) {
+        return reply.status(400).send({
+            error: "Missing required fields in the request body",
+        });
+    }
+    // Validate the email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return reply.status(400).send({
+            error: "Invalid email format",
+        });
+    }
+    // Prepare the data to upsert
+    const upsertData = {
+        user_id: userId,
+        full_name,
+        father_name,
+        address,
+        contact,
+        email,
+    };
+    // Include the id if it's provided
+    if (id) {
+        upsertData.id = id;
+    }
+    try {
+        // Perform the upsert operation
+        const { data, error } = yield supabaseClient_1.default
+            .from("witnesses")
+            .upsert(upsertData, { onConflict: "id" }) // Upsert based on id
+            .select();
+        if (error) {
+            console.error("Supabase error:", error);
+            return reply.status(500).send({
+                error: "Database error",
+                details: error.message,
+            });
+        }
+        // Check if data was returned
+        if (data && data.length > 0) {
+            return reply.status(200).send({ status: "success", id: data[0].id });
+        }
+        else {
+            return reply
+                .status(500)
+                .send({ error: "Failed to upsert witness data" });
+        }
+    }
+    catch (err) {
+        console.error("Server error:", err);
         return reply.status(500).send({ error: "Internal Server Error" });
     }
 }));

@@ -8,12 +8,12 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const getSecret = () => {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-        throw new Error('JWT_SECRET is missing. Please add JWT_SECRET in the environment variable.');
+        throw new Error("JWT_SECRET is missing. Please add JWT_SECRET in the environment variable.");
     }
     return secret;
 };
 // Function to generate JWT
-const generateToken = (payload, expiresIn = '1h') => {
+const generateToken = (payload, expiresIn = "1h") => {
     const secret = getSecret();
     return jsonwebtoken_1.default.sign(payload, secret, { expiresIn });
 };
