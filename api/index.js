@@ -480,7 +480,7 @@ app.post("/upsert-beneficiary", (request, reply) => __awaiter(void 0, void 0, vo
         // Perform the upsert operation
         const { data, error } = yield supabaseClient_1.default
             .from("beneficiaries")
-            .upsert(upsertData, { onConflict: "id" }) // Upsert based on id
+            .upsert(upsertData, { onConflict: "user_id" }) // Upsert based on id
             .select();
         if (error) {
             console.error("Supabase error:", error);
@@ -564,7 +564,7 @@ app.post("/upsert-witness", (request, reply) => __awaiter(void 0, void 0, void 0
         // Perform the upsert operation
         const { data, error } = yield supabaseClient_1.default
             .from("witnesses")
-            .upsert(upsertData, { onConflict: "id" }) // Upsert based on id
+            .upsert(upsertData, { onConflict: "user_id" }) // Upsert based on id
             .select();
         if (error) {
             console.error("Supabase error:", error);

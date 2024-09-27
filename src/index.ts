@@ -636,7 +636,7 @@ app.post(
       // Perform the upsert operation
       const { data, error } = await supabase
         .from("beneficiaries")
-        .upsert(upsertData, { onConflict: "id" }) // Upsert based on id
+        .upsert(upsertData, { onConflict: "user_id" }) // Upsert based on id
         .select();
 
       if (error) {
@@ -751,7 +751,7 @@ app.post(
       // Perform the upsert operation
       const { data, error } = await supabase
         .from("witnesses")
-        .upsert(upsertData, { onConflict: "id" }) // Upsert based on id
+        .upsert(upsertData, { onConflict: "user_id" }) // Upsert based on id
         .select();
 
       if (error) {
