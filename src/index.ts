@@ -6,6 +6,8 @@ import { generateToken, verifyToken } from "./utils/jwtUtils";
 import { sendEmail } from "./utils/emailUtils";
 import rateLimit from "@fastify/rate-limit";
 import fastifyCookie from "@fastify/cookie";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 
 interface EmailRequestBody {
   email?: string;
@@ -770,6 +772,154 @@ app.post(
           .status(500)
           .send({ error: "Failed to upsert witness data" });
       }
+    } catch (err) {
+      console.error("Server error:", err);
+      return reply.status(500).send({ error: "Internal Server Error" });
+    }
+  }
+);
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_TEST_KEY_ID!,
+  key_secret: process.env.RAZORPAY_TEST_KEY_SECRET!,
+});
+
+// Define the route
+app.post(
+  "/create-order",
+  async (
+    request: FastifyRequest<{
+      Body: { amount: number; currency?: string; receipt?: string };
+    }>,
+    reply: FastifyReply
+  ) => {
+    // Extract the Authorization header
+    const authHeader = request.headers["authorization"];
+
+    if (!authHeader) {
+      return reply
+        .status(401)
+        .send({ error: "Authorization header is missing" });
+    }
+
+    const tokenParts = authHeader.split(" ");
+    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
+      return reply.status(401).send({ error: "Bearer token is missing" });
+    }
+    const token = tokenParts[1];
+
+    // Decode and verify the token
+    let decodedToken: any;
+    try {
+      decodedToken = await verifyToken(token);
+    } catch (err) {
+      return reply.status(401).send({ error: "Invalid token" });
+    }
+
+    // Extract user ID from the token
+    const userId = decodedToken.id;
+    if (!userId) {
+      return reply.status(401).send({ error: "Invalid token payload" });
+    }
+
+    // Extract and validate the request body
+    const { amount, currency = "INR", receipt } = request.body;
+
+    if (!amount || amount <= 0) {
+      return reply.status(400).send({ error: "Invalid amount" });
+    }
+
+    try {
+      // Create an order using Razorpay API
+      const options = {
+        amount: amount * 100, // Amount in paise
+        currency,
+        receipt: receipt || `receipt_${new Date().getTime()}`,
+        payment_capture: 1, // Auto-capture payment
+      };
+
+      const order = await razorpay.orders.create(options);
+
+      // Insert the order details into the transactions table
+      const { data, error } = await supabase
+        .from("transactions")
+        .insert([
+          {
+            user_id: userId,
+            order_id: order.id,
+            amount,
+            currency,
+            status: order.status,
+            receipt: order.receipt,
+          },
+        ])
+        .select();
+
+      if (error) {
+        console.error("Supabase error:", error);
+        return reply
+          .status(500)
+          .send({ error: "Database error", details: error.message });
+      }
+
+      // Return the order details to the frontend
+      return reply.status(200).send({ order });
+    } catch (err) {
+      console.error("Razorpay error:", err);
+      return reply.status(500).send({ error: "Razorpay error", details: err });
+    }
+  }
+);
+
+app.post(
+  "/verify-payment",
+  async (
+    request: FastifyRequest<{
+      Body: { order_id: string; payment_id: string; signature: string };
+    }>,
+    reply: FastifyReply
+  ) => {
+    // Extract the Authorization header (optional, if needed)
+    const authHeader = request.headers["authorization"];
+
+    // Optionally verify the user as before...
+
+    // Extract and validate the request body
+    const { order_id, payment_id, signature } = request.body;
+
+    if (!order_id || !payment_id || !signature) {
+      return reply.status(400).send({ error: "Missing required fields" });
+    }
+
+    // Generate the expected signature
+    const generatedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_TEST_KEY_SECRET!)
+      .update(order_id + "|" + payment_id)
+      .digest("hex");
+
+    // Compare the signatures
+    if (generatedSignature !== signature) {
+      return reply.status(400).send({ error: "Invalid payment signature" });
+    }
+
+    try {
+      // Update the transaction status in the database
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({ payment_id, status: "paid" })
+        .eq("order_id", order_id)
+        .select();
+
+      if (error) {
+        console.error("Supabase error:", error);
+        return reply
+          .status(500)
+          .send({ error: "Database error", details: error.message });
+      }
+
+      // Return success response
+      return reply
+        .status(200)
+        .send({ status: "Payment verified successfully" });
     } catch (err) {
       console.error("Server error:", err);
       return reply.status(500).send({ error: "Internal Server Error" });
