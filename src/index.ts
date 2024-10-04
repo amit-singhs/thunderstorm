@@ -787,9 +787,7 @@ const razorpay = new Razorpay({
 app.post(
   "/create-order",
   async (
-    request: FastifyRequest<{
-      Body: { amount: number; currency?: string; receipt?: string };
-    }>,
+    request,
     reply: FastifyReply
   ) => {
     // Extract the Authorization header
@@ -821,19 +819,15 @@ app.post(
       return reply.status(401).send({ error: "Invalid token payload" });
     }
 
-    // Extract and validate the request body
-    const { amount, currency = "INR", receipt } = request.body;
-
-    if (!amount || amount <= 0) {
-      return reply.status(400).send({ error: "Invalid amount" });
-    }
+      const amount = 532; // TODO: This is a backend hard coded amount
+      const receipt = `receipt_${new Date().getTime()}`;
 
     try {
       // Create an order using Razorpay API
       const options = {
         amount: amount * 100, // Amount in paise
-        currency,
-        receipt: receipt || `receipt_${new Date().getTime()}`,
+        currency : "INR",
+        receipt: receipt,
         payment_capture: 1, // Auto-capture payment
       };
 
@@ -847,7 +841,7 @@ app.post(
             user_id: userId,
             order_id: order.id,
             amount,
-            currency,
+            currency: "INR",
             status: order.status,
             receipt: order.receipt,
           },
