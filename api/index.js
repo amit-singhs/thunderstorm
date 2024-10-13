@@ -23,10 +23,37 @@ const rate_limit_1 = __importDefault(require("@fastify/rate-limit"));
 const cookie_1 = __importDefault(require("@fastify/cookie"));
 const razorpay_1 = __importDefault(require("razorpay"));
 const crypto_1 = __importDefault(require("crypto"));
+const cors_1 = __importDefault(require("@fastify/cors"));
 const app = (0, fastify_1.default)({
     logger: true,
     maxParamLength: 300,
 });
+// Register the CORS plugin after cookies and rate limiting
+app.register(cors_1.default, {
+    origin: "http://localhost:5173",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
+    exposedHeaders: ["Set-Cookie"],
+    maxAge: 86400,
+});
+/*app.register(fastifyCors, {
+  origin: "http://localhost:5173", // Frontend origin
+  credentials: true, // Allow cookies to be sent
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed HTTP methods
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "x-api-key",
+    "Accept",
+    "User-Agent",
+    "Referer",
+    "Accept-Language",
+    "Access-Control-Allow-Origin",
+    "Access-Control-Allow-Credentials",
+  ], // Allowed headers
+  maxAge: 86400, // 24 hours
+});*/
 // Register the rate limiting plugin first
 app.register(rate_limit_1.default, {
     max: 1, // Maximum 1 requests
@@ -38,7 +65,10 @@ app.register(rate_limit_1.default, {
 });
 // Register the middleware
 app.addHook("onRequest", apiKeyAuthMiddleware_1.default);
-app.register(cookie_1.default);
+app.register(cookie_1.default, {
+    secret: process.env.COOKIE_SECRET,
+    parseOptions: {}, // options for parsing cookies
+});
 // Define a route to test the server
 app.get("/hello", (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
     return reply.status(200).type("text/plain").send("Hello, World!");
@@ -89,7 +119,7 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
                 httpOnly: true,
                 secure: process.env.NODE_ENV === "production", // Set to true in production
                 path: "/", // Make cookie accessible in all routes
-                sameSite: "lax", // CSRF protection
+                sameSite: "lax",
             });
             return reply.send({ status: "success" });
         }
@@ -599,9 +629,7 @@ app.post("/create-order", (request, reply) => __awaiter(void 0, void 0, void 0, 
     // Extract the Authorization header
     const authHeader = request.headers["authorization"];
     if (!authHeader) {
-        return reply
-            .status(401)
-            .send({ error: "Authorization header is missing" });
+        return reply.status(401).send({ error: "Authorization header is missing" });
     }
     const tokenParts = authHeader.split(" ");
     if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
@@ -698,6 +726,92 @@ app.post("/verify-payment", (request, reply) => __awaiter(void 0, void 0, void 0
     }
     catch (err) {
         console.error("Server error:", err);
+        return reply.status(500).send({ error: "Internal Server Error" });
+    }
+}));
+app.get("/user-data", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log("All request headers:", request.headers);
+    console.log("Cookie header:", request.headers.cookie);
+    console.log("Parsed cookies:", request.cookies);
+    try {
+        console.log("From user-data, line 988, ALL COOKIES, request.cookies are is ccccccccccccccccccccc> : ", request.cookies);
+        // Extract the 'access-token' from the cookies
+        const accessToken = request.cookies["access-token"];
+        console.log("From user-data, line 973, accessToken is ------------------> : ", accessToken);
+        if (!accessToken) {
+            return reply
+                .status(401)
+                .send({ error: "Unauthorized: No access token found." });
+        }
+        // Decode and verify the token
+        let decodedToken;
+        try {
+            decodedToken = (yield (0, jwtUtils_1.verifyToken)(accessToken));
+            console.log("From user-data, line 983, decodedToken is -%%%%%%%%%%%%%%> : ", decodedToken);
+        }
+        catch (err) {
+            request.log.error("Token verification failed:", err);
+            return reply.status(401).send({ error: "Invalid or expired token." });
+        }
+        // Extract user ID from the token
+        const userId = decodedToken.id;
+        if (!userId) {
+            return reply.status(401).send({ error: "Invalid token payload." });
+        }
+        // Fetch data from Supabase
+        const { data: testator, error: testatorError } = yield supabaseClient_1.default
+            .from("testators")
+            .select("*")
+            .eq("user_id", userId)
+            .single();
+        if (testatorError) {
+            request.log.error("Supabase testator fetch error:", testatorError);
+            return reply
+                .status(500)
+                .send({ error: "Database error", details: testatorError.message });
+        }
+        const { data: executors, error: executorsError } = yield supabaseClient_1.default
+            .from("executors")
+            .select("*")
+            .eq("user_id", userId);
+        if (executorsError) {
+            request.log.error("Supabase executors fetch error:", executorsError);
+            return reply
+                .status(500)
+                .send({ error: "Database error", details: executorsError.message });
+        }
+        const { data: beneficiaries, error: beneficiariesError } = yield supabaseClient_1.default
+            .from("beneficiaries")
+            .select("*")
+            .eq("user_id", userId);
+        if (beneficiariesError) {
+            request.log.error("Supabase beneficiaries fetch error:", beneficiariesError);
+            return reply.status(500).send({
+                error: "Database error",
+                details: beneficiariesError.message,
+            });
+        }
+        const { data: witnesses, error: witnessesError } = yield supabaseClient_1.default
+            .from("witnesses")
+            .select("*")
+            .eq("user_id", userId);
+        if (witnessesError) {
+            request.log.error("Supabase witnesses fetch error:", witnessesError);
+            return reply
+                .status(500)
+                .send({ error: "Database error", details: witnessesError.message });
+        }
+        // Construct the response object
+        const responseData = {
+            testator,
+            executors,
+            beneficiaries,
+            witnesses,
+        };
+        return reply.status(200).send(responseData);
+    }
+    catch (err) {
+        request.log.error("Server error:", err);
         return reply.status(500).send({ error: "Internal Server Error" });
     }
 }));
