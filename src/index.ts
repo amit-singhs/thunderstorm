@@ -70,11 +70,10 @@ const app = Fastify({
 });
 // Register the CORS plugin after cookies and rate limiting
 app.register(fastifyCors, {
-  origin: "*", // allow all origins
+  origin: "http://localhost:5173", // Frontend origin
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
-  exposedHeaders: ["Set-Cookie"],
   maxAge: 86400,
 });
 /*app.register(fastifyCors, {
@@ -108,7 +107,7 @@ app.register(rateLimit, {
 // Register the middleware
 app.addHook("onRequest", apiKeyMiddleware);
 app.register(fastifyCookie, {
-  secret: process.env.COOKIE_SECRET,
+  hook: 'onRequest',
   parseOptions: {}, // options for parsing cookies
 });
 
@@ -174,8 +173,9 @@ app.post(
 
         // Set the cookie
         reply.setCookie("access-token", newToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production", // Set to true in production
+          domain: ".vercel.app",
+          // secure: process.env.NODE_ENV === "production", // Set to true in production
+          secure: false, // Set to true in production
           path: "/", // Make cookie accessible in all routes
           sameSite: "lax", 
         });
