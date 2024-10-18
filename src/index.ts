@@ -70,7 +70,7 @@ const app = Fastify({
 });
 // Register the CORS plugin after cookies and rate limiting
 app.register(fastifyCors, {
-  origin: "http://localhost:5173",
+  origin: "https://sadev-wills-rinmj1e27-amitsinghs-projects.vercel.app/",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
