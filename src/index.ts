@@ -156,7 +156,7 @@ app.post(
           secure: process.env.NODE_ENV === "production", // Set to true in production
           httpOnly: true, // Prevent client-side access
           path: "/", // Make cookie accessible in all routes
-          sameSite: "lax",
+          sameSite: "none",
         });
 
         return reply.send({ status: "success" });
