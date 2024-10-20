@@ -8,16 +8,76 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyCookie from "@fastify/cookie";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import fastifyCors from "@fastify/cors";
 
 interface EmailRequestBody {
   email?: string;
+}
+
+type Testator = {
+  id: string;
+  user_id: string;
+  full_name: string;
+  date_of_birth: string;
+  father_name: string;
+  nationality: string;
+  address: string;
+  will_declaration: string;
+};
+
+interface Executor {
+  id: string;
+  user_id: string;
+  full_name: string;
+  father_name: string;
+  date_of_birth: string;
+  nationality: string;
+  address: string;
+  consent: string;
+}
+
+interface Beneficiary {
+  id: string;
+  user_id: string;
+  full_name: string;
+  father_name: string;
+  date_of_birth: string;
+  relationship_with_testator: string;
+  address: string;
+  share: string;
+}
+
+interface Witness {
+  id: string;
+  user_id: string;
+  full_name: string;
+  father_name: string;
+  address: string;
+  contact: number;
+  email: string;
+}
+
+interface UserDataResponse {
+  testator: Testator;
+  executors: Executor[];
+  beneficiaries: Beneficiary[];
+  witnesses: Witness[];
 }
 
 const app = Fastify({
   logger: true,
   maxParamLength: 300,
 });
+// Register the CORS plugin after cookies and rate limiting
+app.register(fastifyCors, {
+  origin: process.env.FRONTEND_URL, // Frontend origin
+  credentials: true,
+});
 
+app.register(fastifyCookie, {
+  hook: "onRequest",
+  parseOptions: {}, // options for parsing cookies
+});
 // Register the rate limiting plugin first
 app.register(rateLimit, {
   max: 1, // Maximum 1 requests
@@ -30,7 +90,6 @@ app.register(rateLimit, {
 
 // Register the middleware
 app.addHook("onRequest", apiKeyMiddleware);
-app.register(fastifyCookie);
 
 // Define a route to test the server
 app.get("/hello", async (req: FastifyRequest, reply: FastifyReply) => {
@@ -46,7 +105,7 @@ app.get("/welcome", async (req: FastifyRequest, reply: FastifyReply) => {
 
 // Define the root route
 app.get("/", async (req: FastifyRequest, reply: FastifyReply) => {
-  return reply.status(200).type("text/html").send(html);
+  return reply.status(200).type("text/html").send("Welcome to the root route.");
 });
 
 // The login route, through email
@@ -94,10 +153,10 @@ app.post(
 
         // Set the cookie
         reply.setCookie("access-token", newToken, {
-          httpOnly: true,
           secure: process.env.NODE_ENV === "production", // Set to true in production
+          httpOnly: true, // Prevent client-side access
           path: "/", // Make cookie accessible in all routes
-          sameSite: "lax", // CSRF protection
+          sameSite: "lax",
         });
 
         return reply.send({ status: "success" });
@@ -784,85 +843,77 @@ const razorpay = new Razorpay({
 });
 
 // Define the route
-app.post(
-  "/create-order",
-  async (
-    request,
-    reply: FastifyReply
-  ) => {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
+app.post("/create-order", async (request, reply: FastifyReply) => {
+  // Extract the Authorization header
+  const authHeader = request.headers["authorization"];
 
-    if (!authHeader) {
-      return reply
-        .status(401)
-        .send({ error: "Authorization header is missing" });
-    }
-
-    const tokenParts = authHeader.split(" ");
-    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
-      return reply.status(401).send({ error: "Bearer token is missing" });
-    }
-    const token = tokenParts[1];
-
-    // Decode and verify the token
-    let decodedToken: any;
-    try {
-      decodedToken = await verifyToken(token);
-    } catch (err) {
-      return reply.status(401).send({ error: "Invalid token" });
-    }
-
-    // Extract user ID from the token
-    const userId = decodedToken.id;
-    if (!userId) {
-      return reply.status(401).send({ error: "Invalid token payload" });
-    }
-
-      const amount = 532; // TODO: This is a backend hard coded amount
-      const receipt = `receipt_${new Date().getTime()}`;
-
-    try {
-      // Create an order using Razorpay API
-      const options = {
-        amount: amount * 100, // Amount in paise
-        currency : "INR",
-        receipt: receipt,
-        payment_capture: 1, // Auto-capture payment
-      };
-
-      const order = await razorpay.orders.create(options);
-
-      // Insert the order details into the transactions table
-      const { data, error } = await supabase
-        .from("transactions")
-        .insert([
-          {
-            user_id: userId,
-            order_id: order.id,
-            amount,
-            currency: "INR",
-            status: order.status,
-            receipt: order.receipt,
-          },
-        ])
-        .select();
-
-      if (error) {
-        console.error("Supabase error:", error);
-        return reply
-          .status(500)
-          .send({ error: "Database error", details: error.message });
-      }
-
-      // Return the order details to the frontend
-      return reply.status(200).send({ order });
-    } catch (err) {
-      console.error("Razorpay error:", err);
-      return reply.status(500).send({ error: "Razorpay error", details: err });
-    }
+  if (!authHeader) {
+    return reply.status(401).send({ error: "Authorization header is missing" });
   }
-);
+
+  const tokenParts = authHeader.split(" ");
+  if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
+    return reply.status(401).send({ error: "Bearer token is missing" });
+  }
+  const token = tokenParts[1];
+
+  // Decode and verify the token
+  let decodedToken: any;
+  try {
+    decodedToken = await verifyToken(token);
+  } catch (err) {
+    return reply.status(401).send({ error: "Invalid token" });
+  }
+
+  // Extract user ID from the token
+  const userId = decodedToken.id;
+  if (!userId) {
+    return reply.status(401).send({ error: "Invalid token payload" });
+  }
+
+  const amount = 532; // TODO: This is a backend hard coded amount
+  const receipt = `receipt_${new Date().getTime()}`;
+
+  try {
+    // Create an order using Razorpay API
+    const options = {
+      amount: amount * 100, // Amount in paise
+      currency: "INR",
+      receipt: receipt,
+      payment_capture: 1, // Auto-capture payment
+    };
+
+    const order = await razorpay.orders.create(options);
+
+    // Insert the order details into the transactions table
+    const { data, error } = await supabase
+      .from("transactions")
+      .insert([
+        {
+          user_id: userId,
+          order_id: order.id,
+          amount,
+          currency: "INR",
+          status: order.status,
+          receipt: order.receipt,
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return reply
+        .status(500)
+        .send({ error: "Database error", details: error.message });
+    }
+
+    // Return the order details to the frontend
+    return reply.status(200).send({ order });
+  } catch (err) {
+    console.error("Razorpay error:", err);
+    return reply.status(500).send({ error: "Razorpay error", details: err });
+  }
+});
 
 app.post(
   "/verify-payment",
@@ -921,13 +972,107 @@ app.post(
   }
 );
 
+app.get("/user-data", async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    // Extract the 'access-token' from the cookies
+    const accessToken = request.cookies["access-token"];
+    if (!accessToken) {
+      return reply
+        .status(401)
+        .send({ error: "Unauthorized: No access token found." });
+    }
+
+    // Decode and verify the token
+    let decodedToken: JwtPayload;
+    try {
+      decodedToken = (await verifyToken(accessToken)) as JwtPayload;
+    } catch (err) {
+      request.log.error("Token verification failed:", err);
+      return reply.status(401).send({ error: "Invalid or expired token." });
+    }
+
+    // Extract user ID from the token
+    const userId = decodedToken.id;
+    if (!userId) {
+      return reply.status(401).send({ error: "Invalid token payload." });
+    }
+
+    // Fetch data from Supabase
+    const { data: testator, error: testatorError } = await supabase
+      .from("testators")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (testatorError) {
+      request.log.error("Supabase testator fetch error:", testatorError);
+      return reply
+        .status(500)
+        .send({ error: "Database error", details: testatorError.message });
+    }
+
+    const { data: executors, error: executorsError } = await supabase
+      .from("executors")
+      .select("*")
+      .eq("user_id", userId);
+
+    if (executorsError) {
+      request.log.error("Supabase executors fetch error:", executorsError);
+      return reply
+        .status(500)
+        .send({ error: "Database error", details: executorsError.message });
+    }
+
+    const { data: beneficiaries, error: beneficiariesError } = await supabase
+      .from("beneficiaries")
+      .select("*")
+      .eq("user_id", userId);
+
+    if (beneficiariesError) {
+      request.log.error(
+        "Supabase beneficiaries fetch error:",
+        beneficiariesError
+      );
+      return reply.status(500).send({
+        error: "Database error",
+        details: beneficiariesError.message,
+      });
+    }
+
+    const { data: witnesses, error: witnessesError } = await supabase
+      .from("witnesses")
+      .select("*")
+      .eq("user_id", userId);
+
+    if (witnessesError) {
+      request.log.error("Supabase witnesses fetch error:", witnessesError);
+      return reply
+        .status(500)
+        .send({ error: "Database error", details: witnessesError.message });
+    }
+
+    // Construct the response object
+    const responseData: UserDataResponse = {
+      testator,
+      executors,
+      beneficiaries,
+      witnesses,
+    };
+
+    return reply.status(200).send(responseData);
+  } catch (err) {
+    request.log.error("Server error:", err);
+    return reply.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
 // Export the Fastify instance as a Vercel function
 export default async function handler(req: FastifyRequest, res: FastifyReply) {
   await app.ready(); // Ensure the app is ready to handle requests
   app.server.emit("request", req, res); // Emit the request to the Fastify instance
 }
 
-app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
+app.listen({ port: 3000, host: "localhost" }, (err, address) => {
   if (err) {
     app.log.error(err);
     process.exit(1);
@@ -935,54 +1080,3 @@ app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
   app.log.info(`Server listening at ${address}`);
 });
 
-// HTML content
-const html = `
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@exampledev/new.css@1.1.2/new.min.css"
-    />
-    <title>Vercel + Fastify Hello World</title>
-    <meta
-      name="description"
-      content="This is a starter template for Vercel + Fastify."
-    />
-  </head>
-  <body>
-    <h1>Vercel + Fastify Hello World</h1>
-    <p>
-      This is a starter template for Vercel + Fastify. Requests are
-      rewritten from <code>/*</code> to <code>/api/*</code>, which runs
-      as a Vercel Function.
-    </p>
-    <p>
-        For example, here is the boilerplate code for this route:
-    </p>
-    <pre>
-<code>import Fastify from 'fastify'
-
-const app = Fastify({
-  logger: true,
-})
-
-app.get('/', async (req, res) => {
-  return res.status(200).type('text/html').send(html)
-})
-
-export default async function handler(req: any, res: any) {
-  await app.ready()
-  app.server.emit('request', req, res)
-}</code>
-    </pre>
-    <p>
-      <a href="https://vercel.com/templates/other/fastify-serverless-function">
-      Deploy your own
-      </a>
-      to get started.
-  </body>
-</html>
-`;
