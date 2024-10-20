@@ -98,7 +98,7 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
                 secure: process.env.NODE_ENV === "production", // Set to true in production
                 httpOnly: true, // Prevent client-side access
                 path: "/", // Make cookie accessible in all routes
-                sameSite: "lax",
+                sameSite: "none",
             });
             return reply.send({ status: "success" });
         }
