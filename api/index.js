@@ -100,7 +100,6 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
                 httpOnly: true, // Prevent client-side access
                 path: "/", // Make cookie accessible in all routes
                 sameSite: "none",
-                domain: ".vercel.app"
             });
             return reply.send({ status: "success" });
         }

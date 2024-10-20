@@ -158,7 +158,6 @@ app.post(
           httpOnly: true, // Prevent client-side access
           path: "/", // Make cookie accessible in all routes
           sameSite: "none",
-          domain: ".vercel.app"
         });
 
         return reply.send({ status: "success" });
