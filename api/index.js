@@ -30,29 +30,13 @@ const app = (0, fastify_1.default)({
 });
 // Register the CORS plugin after cookies and rate limiting
 app.register(cors_1.default, {
-    origin: "http://localhost:5173", // Frontend origin
+    origin: process.env.FRONTEND_URL, // Frontend origin
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
-    maxAge: 86400,
 });
-/*app.register(fastifyCors, {
-  origin: "http://localhost:5173", // Frontend origin
-  credentials: true, // Allow cookies to be sent
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed HTTP methods
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "x-api-key",
-    "Accept",
-    "User-Agent",
-    "Referer",
-    "Accept-Language",
-    "Access-Control-Allow-Origin",
-    "Access-Control-Allow-Credentials",
-  ], // Allowed headers
-  maxAge: 86400, // 24 hours
-});*/
+app.register(cookie_1.default, {
+    hook: "onRequest",
+    parseOptions: {}, // options for parsing cookies
+});
 // Register the rate limiting plugin first
 app.register(rate_limit_1.default, {
     max: 1, // Maximum 1 requests
@@ -64,10 +48,6 @@ app.register(rate_limit_1.default, {
 });
 // Register the middleware
 app.addHook("onRequest", apiKeyAuthMiddleware_1.default);
-app.register(cookie_1.default, {
-    hook: 'onRequest',
-    parseOptions: {}, // options for parsing cookies
-});
 // Define a route to test the server
 app.get("/hello", (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
     return reply.status(200).type("text/plain").send("Hello, World!");
@@ -80,7 +60,7 @@ app.get("/welcome", (req, reply) => __awaiter(void 0, void 0, void 0, function* 
 }));
 // Define the root route
 app.get("/", (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    return reply.status(200).type("text/html").send(html);
+    return reply.status(200).type("text/html").send("Welcome to the root route.");
 }));
 // The login route, through email
 app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
@@ -115,9 +95,8 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
             newToken = (0, jwtUtils_1.generateToken)({ email, id: existingData.id }, "1h");
             // Set the cookie
             reply.setCookie("access-token", newToken, {
-                domain: ".vercel.app",
-                // secure: process.env.NODE_ENV === "production", // Set to true in production
-                secure: false, // Set to true in production
+                secure: process.env.NODE_ENV === "production", // Set to true in production
+                httpOnly: true, // Prevent client-side access
                 path: "/", // Make cookie accessible in all routes
                 sameSite: "lax",
             });
@@ -730,14 +709,9 @@ app.post("/verify-payment", (request, reply) => __awaiter(void 0, void 0, void 0
     }
 }));
 app.get("/user-data", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log("All request headers:", request.headers);
-    console.log("Cookie header:", request.headers.cookie);
-    console.log("Parsed cookies:", request.cookies);
     try {
-        console.log("From user-data, line 988, ALL COOKIES, request.cookies are is ccccccccccccccccccccc> : ", request.cookies);
         // Extract the 'access-token' from the cookies
         const accessToken = request.cookies["access-token"];
-        console.log("From user-data, line 973, accessToken is ------------------> : ", accessToken);
         if (!accessToken) {
             return reply
                 .status(401)
@@ -747,7 +721,6 @@ app.get("/user-data", (request, reply) => __awaiter(void 0, void 0, void 0, func
         let decodedToken;
         try {
             decodedToken = (yield (0, jwtUtils_1.verifyToken)(accessToken));
-            console.log("From user-data, line 983, decodedToken is -%%%%%%%%%%%%%%> : ", decodedToken);
         }
         catch (err) {
             request.log.error("Token verification failed:", err);
@@ -822,61 +795,10 @@ function handler(req, res) {
         app.server.emit("request", req, res); // Emit the request to the Fastify instance
     });
 }
-app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
+app.listen({ port: 3000, host: "localhost" }, (err, address) => {
     if (err) {
         app.log.error(err);
         process.exit(1);
     }
     app.log.info(`Server listening at ${address}`);
 });
-// HTML content
-const html = `
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@exampledev/new.css@1.1.2/new.min.css"
-    />
-    <title>Vercel + Fastify Hello World</title>
-    <meta
-      name="description"
-      content="This is a starter template for Vercel + Fastify."
-    />
-  </head>
-  <body>
-    <h1>Vercel + Fastify Hello World</h1>
-    <p>
-      This is a starter template for Vercel + Fastify. Requests are
-      rewritten from <code>/*</code> to <code>/api/*</code>, which runs
-      as a Vercel Function.
-    </p>
-    <p>
-        For example, here is the boilerplate code for this route:
-    </p>
-    <pre>
-<code>import Fastify from 'fastify'
-
-const app = Fastify({
-  logger: true,
-})
-
-app.get('/', async (req, res) => {
-  return res.status(200).type('text/html').send(html)
-})
-
-export default async function handler(req: any, res: any) {
-  await app.ready()
-  app.server.emit('request', req, res)
-}</code>
-    </pre>
-    <p>
-      <a href="https://vercel.com/templates/other/fastify-serverless-function">
-      Deploy your own
-      </a>
-      to get started.
-  </body>
-</html>
-`;

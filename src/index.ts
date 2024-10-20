@@ -70,30 +70,14 @@ const app = Fastify({
 });
 // Register the CORS plugin after cookies and rate limiting
 app.register(fastifyCors, {
-  origin: "http://localhost:5173", // Frontend origin
+  origin: process.env.FRONTEND_URL, // Frontend origin
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
-  maxAge: 86400,
 });
-/*app.register(fastifyCors, {
-  origin: "http://localhost:5173", // Frontend origin
-  credentials: true, // Allow cookies to be sent
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed HTTP methods
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "x-api-key",
-    "Accept",
-    "User-Agent",
-    "Referer",
-    "Accept-Language",
-    "Access-Control-Allow-Origin",
-    "Access-Control-Allow-Credentials",
-  ], // Allowed headers
-  maxAge: 86400, // 24 hours
-});*/
 
+app.register(fastifyCookie, {
+  hook: "onRequest",
+  parseOptions: {}, // options for parsing cookies
+});
 // Register the rate limiting plugin first
 app.register(rateLimit, {
   max: 1, // Maximum 1 requests
@@ -106,10 +90,6 @@ app.register(rateLimit, {
 
 // Register the middleware
 app.addHook("onRequest", apiKeyMiddleware);
-app.register(fastifyCookie, {
-  hook: 'onRequest',
-  parseOptions: {}, // options for parsing cookies
-});
 
 // Define a route to test the server
 app.get("/hello", async (req: FastifyRequest, reply: FastifyReply) => {
@@ -125,7 +105,7 @@ app.get("/welcome", async (req: FastifyRequest, reply: FastifyReply) => {
 
 // Define the root route
 app.get("/", async (req: FastifyRequest, reply: FastifyReply) => {
-  return reply.status(200).type("text/html").send(html);
+  return reply.status(200).type("text/html").send("Welcome to the root route.");
 });
 
 // The login route, through email
@@ -173,11 +153,10 @@ app.post(
 
         // Set the cookie
         reply.setCookie("access-token", newToken, {
-          domain: ".vercel.app",
-          // secure: process.env.NODE_ENV === "production", // Set to true in production
-          secure: false, // Set to true in production
+          secure: process.env.NODE_ENV === "production", // Set to true in production
+          httpOnly: true, // Prevent client-side access
           path: "/", // Make cookie accessible in all routes
-          sameSite: "lax", 
+          sameSite: "lax",
         });
 
         return reply.send({ status: "success" });
@@ -994,23 +973,9 @@ app.post(
 );
 
 app.get("/user-data", async (request: FastifyRequest, reply: FastifyReply) => {
-  console.log("All request headers:", request.headers);
-  console.log("Cookie header:", request.headers.cookie);
-  console.log("Parsed cookies:", request.cookies);
-
   try {
-    console.log(
-      "From user-data, line 988, ALL COOKIES, request.cookies are is ccccccccccccccccccccc> : ",
-      request.cookies
-    );
     // Extract the 'access-token' from the cookies
     const accessToken = request.cookies["access-token"];
-
-    console.log(
-      "From user-data, line 973, accessToken is ------------------> : ",
-      accessToken
-    );
-
     if (!accessToken) {
       return reply
         .status(401)
@@ -1021,10 +986,6 @@ app.get("/user-data", async (request: FastifyRequest, reply: FastifyReply) => {
     let decodedToken: JwtPayload;
     try {
       decodedToken = (await verifyToken(accessToken)) as JwtPayload;
-      console.log(
-        "From user-data, line 983, decodedToken is -%%%%%%%%%%%%%%> : ",
-        decodedToken
-      );
     } catch (err) {
       request.log.error("Token verification failed:", err);
       return reply.status(401).send({ error: "Invalid or expired token." });
@@ -1111,7 +1072,7 @@ export default async function handler(req: FastifyRequest, res: FastifyReply) {
   app.server.emit("request", req, res); // Emit the request to the Fastify instance
 }
 
-app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
+app.listen({ port: 3000, host: "localhost" }, (err, address) => {
   if (err) {
     app.log.error(err);
     process.exit(1);
@@ -1119,54 +1080,3 @@ app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
   app.log.info(`Server listening at ${address}`);
 });
 
-// HTML content
-const html = `
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@exampledev/new.css@1.1.2/new.min.css"
-    />
-    <title>Vercel + Fastify Hello World</title>
-    <meta
-      name="description"
-      content="This is a starter template for Vercel + Fastify."
-    />
-  </head>
-  <body>
-    <h1>Vercel + Fastify Hello World</h1>
-    <p>
-      This is a starter template for Vercel + Fastify. Requests are
-      rewritten from <code>/*</code> to <code>/api/*</code>, which runs
-      as a Vercel Function.
-    </p>
-    <p>
-        For example, here is the boilerplate code for this route:
-    </p>
-    <pre>
-<code>import Fastify from 'fastify'
-
-const app = Fastify({
-  logger: true,
-})
-
-app.get('/', async (req, res) => {
-  return res.status(200).type('text/html').send(html)
-})
-
-export default async function handler(req: any, res: any) {
-  await app.ready()
-  app.server.emit('request', req, res)
-}</code>
-    </pre>
-    <p>
-      <a href="https://vercel.com/templates/other/fastify-serverless-function">
-      Deploy your own
-      </a>
-      to get started.
-  </body>
-</html>
-`;
