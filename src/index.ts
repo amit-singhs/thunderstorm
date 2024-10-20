@@ -72,6 +72,7 @@ const app = Fastify({
 app.register(fastifyCors, {
   origin: process.env.FRONTEND_URL, // Frontend origin
   credentials: true,
+  allowedHeaders: ["Content-Type","x-api-key" ,"Authorization"],
 });
 
 app.register(fastifyCookie, {
