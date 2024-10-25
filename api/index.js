@@ -28,12 +28,30 @@ const app = (0, fastify_1.default)({
     logger: true,
     maxParamLength: 300,
 });
+const getAllowedOrigins = () => {
+    const origins = [
+        "https://sadev-wills.vercel.app", // Production frontend
+        "http://localhost:5173", // Development frontend
+    ];
+    return process.env.NODE_ENV === "production"
+        ? "https://sadev-wills.vercel.app" // In production, be specific
+        : origins; // In development, allow both
+};
 // Register the CORS plugin after cookies and rate limiting
 app.register(cors_1.default, {
-    origin: process.env.FRONTEND_URL, // Frontend origin
+    origin: getAllowedOrigins(), // Frontend origin
     credentials: true,
-    allowedHeaders: ["Content-Type", "x-api-key", "Authorization", "Cookie"], // Add Cookie
+    allowedHeaders: [
+        "Content-Type",
+        "x-api-key",
+        "Authorization",
+        "Cookie",
+        "Origin",
+        "Accept",
+    ], // Add Cookie
     exposedHeaders: ["Set-Cookie"],
+    preflightContinue: true,
+    optionsSuccessStatus: 204,
 });
 app.register(cookie_1.default, {
     hook: "onRequest",
@@ -95,13 +113,15 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
         let newToken = "";
         try {
             newToken = (0, jwtUtils_1.generateToken)({ email, id: existingData.id }, "1h");
+            const isProduction = process.env.NODE_ENV === "production";
             // Set the cookie
             reply.setCookie("access-token", newToken, {
-                secure: process.env.NODE_ENV === "production",
+                secure: isProduction,
                 httpOnly: true,
                 path: "/",
-                sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-                domain: process.env.NODE_ENV === "production" ? undefined : "localhost"
+                sameSite: isProduction ? "none" : "lax",
+                domain: isProduction ? ".vercel.app" : "localhost",
+                maxAge: 60 * 60 * 1000, // 1 hours in milisecond
             });
             return reply.send({ status: "success" });
         }
