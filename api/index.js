@@ -32,7 +32,8 @@ const app = (0, fastify_1.default)({
 app.register(cors_1.default, {
     origin: process.env.FRONTEND_URL, // Frontend origin
     credentials: true,
-    allowedHeaders: ["Content-Type", "x-api-key", "Authorization"],
+    allowedHeaders: ["Content-Type", "x-api-key", "Authorization", "Cookie"], // Add Cookie
+    exposedHeaders: ["Set-Cookie"],
 });
 app.register(cookie_1.default, {
     hook: "onRequest",
@@ -96,10 +97,11 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
             newToken = (0, jwtUtils_1.generateToken)({ email, id: existingData.id }, "1h");
             // Set the cookie
             reply.setCookie("access-token", newToken, {
-                secure: process.env.NODE_ENV === "production", // Set to true in production
-                httpOnly: true, // Prevent client-side access
-                path: "/", // Make cookie accessible in all routes
-                sameSite: "none",
+                secure: process.env.NODE_ENV === "production",
+                httpOnly: true,
+                path: "/",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+                domain: process.env.NODE_ENV === "production" ? undefined : "localhost"
             });
             return reply.send({ status: "success" });
         }

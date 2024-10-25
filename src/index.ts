@@ -72,7 +72,8 @@ const app = Fastify({
 app.register(fastifyCors, {
   origin: process.env.FRONTEND_URL, // Frontend origin
   credentials: true,
-  allowedHeaders: ["Content-Type","x-api-key" ,"Authorization"],
+  allowedHeaders: ["Content-Type", "x-api-key", "Authorization", "Cookie"],  // Add Cookie
+  exposedHeaders: ["Set-Cookie"],
 });
 
 app.register(fastifyCookie, {
@@ -154,10 +155,11 @@ app.post(
 
         // Set the cookie
         reply.setCookie("access-token", newToken, {
-          secure: process.env.NODE_ENV === "production", // Set to true in production
-          httpOnly: true, // Prevent client-side access
-          path: "/", // Make cookie accessible in all routes
-          sameSite: "none",
+          secure: process.env.NODE_ENV === "production",
+          httpOnly: true,
+          path: "/",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+          domain: process.env.NODE_ENV === "production" ? undefined : "localhost"
         });
 
         return reply.send({ status: "success" });
