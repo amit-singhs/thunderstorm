@@ -51,6 +51,13 @@ app.register(cookie_1.default, {
     hook: "onRequest",
     parseOptions: {}, // options for parsing cookies
 });
+// Preflight Handling
+app.options('*', (request, reply) => {
+    reply.header('Access-Control-Allow-Origin', getAllowedOrigins());
+    reply.header('Access-Control-Allow-Credentials', 'true');
+    reply.header('Access-Control-Allow-Headers', 'Content-Type,x-api-key,Authorization');
+    reply.send();
+});
 // Register the CORS plugin after cookies
 app.register(cors_1.default, {
     origin: getAllowedOrigins(), // Frontend origin
