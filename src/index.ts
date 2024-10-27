@@ -91,8 +91,6 @@ app.register(fastifyCors, {
     "Accept",
   ], // Add Cookie
   exposedHeaders: ["Set-Cookie"],
-  preflightContinue: true,
-  optionsSuccessStatus: 204,
 });
 
 app.register(fastifyCookie, {
@@ -178,7 +176,7 @@ app.post(
           httpOnly: true,
           path: "/",
           sameSite: isProduction ? "none" : "lax",
-          domain: isProduction ? ".vercel.app" : "localhost",
+          domain: isProduction ? "sadev-wills.vercel.app" : "localhost",
           maxAge: 60 * 60 * 1000, // 1 hours in milisecond
         });
 
