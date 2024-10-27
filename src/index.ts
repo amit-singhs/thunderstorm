@@ -68,6 +68,7 @@ const app = Fastify({
   logger: true,
   maxParamLength: 300,
 });
+
 const getAllowedOrigins = () => {
   const origins = [
     "https://sadev-wills.vercel.app", // Production frontend
@@ -78,25 +79,7 @@ const getAllowedOrigins = () => {
     ? "https://sadev-wills.vercel.app" // In production, be specific
     : origins; // In development, allow both
 };
-// Register the CORS plugin after cookies and rate limiting
-app.register(fastifyCors, {
-  origin: getAllowedOrigins(), // Frontend origin
-  credentials: true,
-  allowedHeaders: [
-    "Content-Type",
-    "x-api-key",
-    "Authorization",
-    "Cookie",
-    "Origin",
-    "Accept",
-  ], // Add Cookie
-  exposedHeaders: ["Set-Cookie"],
-});
 
-app.register(fastifyCookie, {
-  hook: "onRequest",
-  parseOptions: {}, // options for parsing cookies
-});
 // Register the rate limiting plugin first
 app.register(rateLimit, {
   max: 1, // Maximum 1 requests
@@ -105,6 +88,26 @@ app.register(rateLimit, {
     return request.ip; // Rate limit based on the client's IP address
   },
   global: false, // Apply to all routes
+});
+
+// Register the cookie plugin to parse cookies
+app.register(fastifyCookie, {
+  hook: "onRequest",
+  parseOptions: {}, // options for parsing cookies
+});
+
+// Register the CORS plugin after cookies
+app.register(fastifyCors, {
+  origin: getAllowedOrigins(), // Frontend origin
+  credentials: true,
+  allowedHeaders: [
+    "Content-Type",
+    "x-api-key",
+    "Authorization",
+    "Origin",
+    "Accept",
+  ], // Cookie is not typically sent in allowed headers
+  exposedHeaders: ["Set-Cookie"],
 });
 
 // Register the middleware

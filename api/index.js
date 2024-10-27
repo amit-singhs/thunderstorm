@@ -37,24 +37,6 @@ const getAllowedOrigins = () => {
         ? "https://sadev-wills.vercel.app" // In production, be specific
         : origins; // In development, allow both
 };
-// Register the CORS plugin after cookies and rate limiting
-app.register(cors_1.default, {
-    origin: getAllowedOrigins(), // Frontend origin
-    credentials: true,
-    allowedHeaders: [
-        "Content-Type",
-        "x-api-key",
-        "Authorization",
-        "Cookie",
-        "Origin",
-        "Accept",
-    ], // Add Cookie
-    exposedHeaders: ["Set-Cookie"],
-});
-app.register(cookie_1.default, {
-    hook: "onRequest",
-    parseOptions: {}, // options for parsing cookies
-});
 // Register the rate limiting plugin first
 app.register(rate_limit_1.default, {
     max: 1, // Maximum 1 requests
@@ -63,6 +45,24 @@ app.register(rate_limit_1.default, {
         return request.ip; // Rate limit based on the client's IP address
     },
     global: false, // Apply to all routes
+});
+// Register the cookie plugin to parse cookies
+app.register(cookie_1.default, {
+    hook: "onRequest",
+    parseOptions: {}, // options for parsing cookies
+});
+// Register the CORS plugin after cookies
+app.register(cors_1.default, {
+    origin: getAllowedOrigins(), // Frontend origin
+    credentials: true,
+    allowedHeaders: [
+        "Content-Type",
+        "x-api-key",
+        "Authorization",
+        "Origin",
+        "Accept",
+    ], // Cookie is not typically sent in allowed headers
+    exposedHeaders: ["Set-Cookie"],
 });
 // Register the middleware
 app.addHook("onRequest", apiKeyAuthMiddleware_1.default);
