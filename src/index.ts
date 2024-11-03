@@ -69,6 +69,10 @@ const app = Fastify({
   maxParamLength: 300,
 });
 
+app.register(fastifyCookie, {
+  hook: "onRequest",
+  parseOptions: {}, // options for parsing cookies
+});
 const getAllowedOrigins = () => {
   const origins = [
     "https://sadev-wills.vercel.app", // Production frontend
@@ -91,10 +95,6 @@ app.register(rateLimit, {
 });
 
 // Register the cookie plugin to parse cookies
-app.register(fastifyCookie, {
-  hook: "onRequest",
-  parseOptions: {}, // options for parsing cookies
-});
 
 
 // Register the CORS plugin after cookies
@@ -104,7 +104,6 @@ app.register(fastifyCors, {
   allowedHeaders: [
     "Content-Type",
     "x-api-key",
-    "Authorization",
     "Origin",
     "Accept",
   ], // Cookie is not typically sent in allowed headers
@@ -182,6 +181,7 @@ app.post(
           sameSite: isProduction ? "none" : "lax",
           domain: isProduction ? "sadev-wills.vercel.app" : "localhost",
           maxAge: 60 * 60 * 1000, // 1 hours in milisecond
+          signed: false
         });
 
         return reply.send({ status: "success" });
@@ -395,7 +395,6 @@ app.get(
   }
 );
 
-// Define the route
 app.post(
   "/upsert-testator",
   async (
@@ -411,19 +410,11 @@ app.post(
     }>,
     reply: FastifyReply
   ) => {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
+    // Extract the JWT from the cookie
+    const token = await request.cookies['access-token']
 
-    if (!authHeader) {
-      return reply
-        .status(401)
-        .send({ error: "Authorization header is missing" });
-    }
-
-    // Check if the Authorization header has the Bearer token
-    const token = authHeader.split(" ")[1];
     if (!token) {
-      return reply.status(401).send({ error: "Bearer token is missing" });
+      return reply.status(401).send({ error: "Access token is missing" });
     }
 
     // Decode and verify the token
@@ -503,6 +494,7 @@ app.post(
   }
 );
 
+
 app.post(
   "/upsert-executor",
   async (
@@ -518,21 +510,12 @@ app.post(
     }>,
     reply: FastifyReply
   ) => {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
+    // Extract the JWT from the cookie
+    const token = await request.cookies['access-token']
 
-    if (!authHeader) {
-      return reply
-        .status(401)
-        .send({ error: "Authorization header is missing" });
+    if (!token) {
+      return reply.status(401).send({ error: "Access token is missing" });
     }
-
-    // Check if the Authorization header has the Bearer token
-    const tokenParts = authHeader.split(" ");
-    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
-      return reply.status(401).send({ error: "Bearer token is missing" });
-    }
-    const token = tokenParts[1];
 
     // Decode and verify the token
     let decodedToken;
@@ -642,22 +625,13 @@ app.post(
     }>,
     reply: FastifyReply
   ) => {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
+    // Extract the JWT from the cookie
+    const token = await request.cookies['access-token']
 
-    if (!authHeader) {
-      return reply
-        .status(401)
-        .send({ error: "Authorization header is missing" });
+    if (!token) {
+      return reply.status(401).send({ error: "Access token is missing" });
     }
-
-    // Check if the Authorization header has the Bearer token
-    const tokenParts = authHeader.split(" ");
-    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
-      return reply.status(401).send({ error: "Bearer token is missing" });
-    }
-    const token = tokenParts[1];
-
+    
     // Decode and verify the token
     let decodedToken;
     try {
@@ -764,21 +738,12 @@ app.post(
     }>,
     reply: FastifyReply
   ) => {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
+    // Extract the JWT from the cookie
+    const token = await request.cookies['access-token']
 
-    if (!authHeader) {
-      return reply
-        .status(401)
-        .send({ error: "Authorization header is missing" });
+    if (!token) {
+      return reply.status(401).send({ error: "Access token is missing" });
     }
-
-    // Check if the Authorization header has the Bearer token
-    const tokenParts = authHeader.split(" ");
-    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
-      return reply.status(401).send({ error: "Bearer token is missing" });
-    }
-    const token = tokenParts[1];
 
     // Decode and verify the token
     let decodedToken;
@@ -869,18 +834,13 @@ const razorpay = new Razorpay({
 
 // Define the route
 app.post("/create-order", async (request, reply: FastifyReply) => {
-  // Extract the Authorization header
-  const authHeader = request.headers["authorization"];
+  console.log("From line 837, request is [[[[[[[[[[[[[[[ : ", request);
+  // Extract the JWT from the cookie
+    const token = await request.cookies['access-token']
 
-  if (!authHeader) {
-    return reply.status(401).send({ error: "Authorization header is missing" });
-  }
-
-  const tokenParts = authHeader.split(" ");
-  if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
-    return reply.status(401).send({ error: "Bearer token is missing" });
-  }
-  const token = tokenParts[1];
+    if (!token) {
+      return reply.status(401).send({ error: "Access token is missing" });
+    }
 
   // Decode and verify the token
   let decodedToken: any;
@@ -948,10 +908,7 @@ app.post(
     }>,
     reply: FastifyReply
   ) => {
-    // Extract the Authorization header (optional, if needed)
-    const authHeader = request.headers["authorization"];
-
-    // Optionally verify the user as before...
+    // Optionally verify the user
 
     // Extract and validate the request body
     const { order_id, payment_id, signature } = request.body;
