@@ -28,6 +28,10 @@ const app = (0, fastify_1.default)({
     logger: true,
     maxParamLength: 300,
 });
+app.register(cookie_1.default, {
+    hook: "onRequest",
+    parseOptions: {}, // options for parsing cookies
+});
 const getAllowedOrigins = () => {
     const origins = [
         "https://sadev-wills.vercel.app", // Production frontend
@@ -47,10 +51,6 @@ app.register(rate_limit_1.default, {
     global: false, // Apply to all routes
 });
 // Register the cookie plugin to parse cookies
-app.register(cookie_1.default, {
-    hook: "onRequest",
-    parseOptions: {}, // options for parsing cookies
-});
 // Register the CORS plugin after cookies
 app.register(cors_1.default, {
     origin: getAllowedOrigins(), // Frontend origin
@@ -58,7 +58,6 @@ app.register(cors_1.default, {
     allowedHeaders: [
         "Content-Type",
         "x-api-key",
-        "Authorization",
         "Origin",
         "Accept",
     ], // Cookie is not typically sent in allowed headers
@@ -120,6 +119,7 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
                 sameSite: isProduction ? "none" : "lax",
                 domain: isProduction ? "sadev-wills.vercel.app" : "localhost",
                 maxAge: 60 * 60 * 1000, // 1 hours in milisecond
+                signed: false
             });
             return reply.send({ status: "success" });
         }
@@ -286,19 +286,11 @@ app.get("/verify-email/:email/:token", {
         return reply.status(500).send({ error: "Internal Server Error" });
     }
 }));
-// Define the route
 app.post("/upsert-testator", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
-    if (!authHeader) {
-        return reply
-            .status(401)
-            .send({ error: "Authorization header is missing" });
-    }
-    // Check if the Authorization header has the Bearer token
-    const token = authHeader.split(" ")[1];
+    // Extract the JWT from the cookie
+    const token = yield request.cookies['access-token'];
     if (!token) {
-        return reply.status(401).send({ error: "Bearer token is missing" });
+        return reply.status(401).send({ error: "Access token is missing" });
     }
     // Decode and verify the token
     let decodedToken;
@@ -361,19 +353,11 @@ app.post("/upsert-testator", (request, reply) => __awaiter(void 0, void 0, void 
     }
 }));
 app.post("/upsert-executor", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
-    if (!authHeader) {
-        return reply
-            .status(401)
-            .send({ error: "Authorization header is missing" });
+    // Extract the JWT from the cookie
+    const token = yield request.cookies['access-token'];
+    if (!token) {
+        return reply.status(401).send({ error: "Access token is missing" });
     }
-    // Check if the Authorization header has the Bearer token
-    const tokenParts = authHeader.split(" ");
-    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
-        return reply.status(401).send({ error: "Bearer token is missing" });
-    }
-    const token = tokenParts[1];
     // Decode and verify the token
     let decodedToken;
     try {
@@ -450,19 +434,11 @@ app.post("/upsert-executor", (request, reply) => __awaiter(void 0, void 0, void 
 }));
 // Define the route
 app.post("/upsert-beneficiary", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
-    if (!authHeader) {
-        return reply
-            .status(401)
-            .send({ error: "Authorization header is missing" });
+    // Extract the JWT from the cookie
+    const token = yield request.cookies['access-token'];
+    if (!token) {
+        return reply.status(401).send({ error: "Access token is missing" });
     }
-    // Check if the Authorization header has the Bearer token
-    const tokenParts = authHeader.split(" ");
-    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
-        return reply.status(401).send({ error: "Bearer token is missing" });
-    }
-    const token = tokenParts[1];
     // Decode and verify the token
     let decodedToken;
     try {
@@ -538,19 +514,11 @@ app.post("/upsert-beneficiary", (request, reply) => __awaiter(void 0, void 0, vo
 }));
 // Define the route
 app.post("/upsert-witness", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
-    if (!authHeader) {
-        return reply
-            .status(401)
-            .send({ error: "Authorization header is missing" });
+    // Extract the JWT from the cookie
+    const token = yield request.cookies['access-token'];
+    if (!token) {
+        return reply.status(401).send({ error: "Access token is missing" });
     }
-    // Check if the Authorization header has the Bearer token
-    const tokenParts = authHeader.split(" ");
-    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
-        return reply.status(401).send({ error: "Bearer token is missing" });
-    }
-    const token = tokenParts[1];
     // Decode and verify the token
     let decodedToken;
     try {
@@ -626,16 +594,12 @@ const razorpay = new razorpay_1.default({
 });
 // Define the route
 app.post("/create-order", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    // Extract the Authorization header
-    const authHeader = request.headers["authorization"];
-    if (!authHeader) {
-        return reply.status(401).send({ error: "Authorization header is missing" });
+    console.log("From line 837, request is [[[[[[[[[[[[[[[ : ", request);
+    // Extract the JWT from the cookie
+    const token = yield request.cookies['access-token'];
+    if (!token) {
+        return reply.status(401).send({ error: "Access token is missing" });
     }
-    const tokenParts = authHeader.split(" ");
-    if (tokenParts[0] !== "Bearer" || !tokenParts[1]) {
-        return reply.status(401).send({ error: "Bearer token is missing" });
-    }
-    const token = tokenParts[1];
     // Decode and verify the token
     let decodedToken;
     try {
@@ -689,9 +653,7 @@ app.post("/create-order", (request, reply) => __awaiter(void 0, void 0, void 0, 
     }
 }));
 app.post("/verify-payment", (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
-    // Extract the Authorization header (optional, if needed)
-    const authHeader = request.headers["authorization"];
-    // Optionally verify the user as before...
+    // Optionally verify the user
     // Extract and validate the request body
     const { order_id, payment_id, signature } = request.body;
     if (!order_id || !payment_id || !signature) {
