@@ -84,19 +84,6 @@ const getAllowedOrigins = () => {
     : origins; // In development, allow both
 };
 
-// Register the rate limiting plugin first
-app.register(rateLimit, {
-  max: 1, // Maximum 1 requests
-  timeWindow: "1 minute", // Per minute
-  keyGenerator: (request) => {
-    return request.ip; // Rate limit based on the client's IP address
-  },
-  global: false, // Apply to all routes
-});
-
-// Register the cookie plugin to parse cookies
-
-
 // Register the CORS plugin after cookies
 app.register(fastifyCors, {
   origin: getAllowedOrigins(), // Frontend origin
@@ -108,6 +95,16 @@ app.register(fastifyCors, {
     "Accept",
   ], // Cookie is not typically sent in allowed headers
   exposedHeaders: ["Set-Cookie"],
+});
+
+// Register the rate limiting plugin first
+app.register(rateLimit, {
+  max: 1, // Maximum 1 requests
+  timeWindow: "1 minute", // Per minute
+  keyGenerator: (request) => {
+    return request.ip; // Rate limit based on the client's IP address
+  },
+  global: false, // Apply to all routes
 });
 
 // Register the middleware
@@ -179,7 +176,7 @@ app.post(
           httpOnly: true,
           path: "/",
           sameSite: isProduction ? "none" : "lax",
-          domain: isProduction ? "sadev-wills.vercel.app" : "localhost",
+          domain: isProduction ? ".vercel.app" : "localhost",
           maxAge: 60 * 60 * 1000, // 1 hours in milisecond
           signed: false
         });
