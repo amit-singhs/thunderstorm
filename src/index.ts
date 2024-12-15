@@ -97,6 +97,11 @@ app.register(fastifyCors, {
   exposedHeaders: ["Set-Cookie"],
 });
 
+// Explicitly add CORS headers
+app.addHook('onSend', async (request, reply) => {
+  reply.header('Access-Control-Allow-Credentials', 'true');
+})
+
 // Register the rate limiting plugin first
 app.register(rateLimit, {
   max: 1, // Maximum 1 requests

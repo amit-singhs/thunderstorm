@@ -53,6 +53,10 @@ app.register(cors_1.default, {
     ], // Cookie is not typically sent in allowed headers
     exposedHeaders: ["Set-Cookie"],
 });
+// Explicitly add CORS headers
+app.addHook('onSend', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    reply.header('Access-Control-Allow-Credentials', 'true');
+}));
 // Register the rate limiting plugin first
 app.register(rate_limit_1.default, {
     max: 1, // Maximum 1 requests
