@@ -95,7 +95,7 @@ app.register(fastifyCors, {
     "Accept",
     "Cookie"
   ], // Cookie is not typically sent in allowed headers
-  exposedHeaders: ["Set-Cookie"],
+  exposedHeaders: ["Set-Cookie","Cookie"],
 });
 
 // Explicitly add CORS headers

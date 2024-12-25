@@ -52,7 +52,7 @@ app.register(cors_1.default, {
         "Accept",
         "Cookie"
     ], // Cookie is not typically sent in allowed headers
-    exposedHeaders: ["Set-Cookie"],
+    exposedHeaders: ["Set-Cookie", "Cookie"],
 });
 // Explicitly add CORS headers
 app.addHook('onSend', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
