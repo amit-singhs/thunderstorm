@@ -93,6 +93,7 @@ app.register(fastifyCors, {
     "x-api-key",
     "Origin",
     "Accept",
+    "Cookie"
   ], // Cookie is not typically sent in allowed headers
   exposedHeaders: ["Set-Cookie"],
 });

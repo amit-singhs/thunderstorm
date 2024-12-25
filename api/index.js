@@ -50,6 +50,7 @@ app.register(cors_1.default, {
         "x-api-key",
         "Origin",
         "Accept",
+        "Cookie"
     ], // Cookie is not typically sent in allowed headers
     exposedHeaders: ["Set-Cookie"],
 });
