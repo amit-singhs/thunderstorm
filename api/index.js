@@ -121,7 +121,7 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
                 httpOnly: true,
                 path: "/",
                 sameSite: "lax",
-                domain: isProduction ? ".sadev-wills.vercel.app" : "localhost",
+                domain: isProduction ? "sadev-wills.vercel.app" : "localhost",
                 maxAge: 60 * 60 * 1000, // 1 hours in milisecond
                 signed: false
             });
