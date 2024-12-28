@@ -91,10 +91,11 @@ app.register(fastifyCors, {
   allowedHeaders: [
     "Content-Type",
     "x-api-key",
+    "Authorization",
     "Origin",
     "Accept",
-    "Cookie"
-  ], // Cookie is not typically sent in allowed headers
+  ], 
+  methods: ["GET", "POST", "OPTIONS"], // Add the required methods
   exposedHeaders: ["Set-Cookie","Cookie"],
 });
 
