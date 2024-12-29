@@ -80,7 +80,7 @@ const getAllowedOrigins = () => {
   ];
 
   return process.env.NODE_ENV === "production"
-    ? "https://sadev-wills.vercel.app" // In production, be specific
+    ? ["https://sadev-wills.vercel.app", "https://fast-marlin.vercel.app"] // In production, be specific
     : origins; // In development, allow both
 };
 
@@ -184,7 +184,7 @@ app.post(
           httpOnly: true,
           path: "/",
           sameSite: isProduction ? "none" : "lax",
-          domain: isProduction ? '.vercel.app' : 'localhost',
+          domain: isProduction ? '*' : 'localhost',
           maxAge: 60 * 60 * 1000, // 1 hours in milisecond
         });
 

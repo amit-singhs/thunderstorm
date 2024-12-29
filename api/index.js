@@ -38,7 +38,7 @@ const getAllowedOrigins = () => {
         "http://localhost:5173", // Development frontend
     ];
     return process.env.NODE_ENV === "production"
-        ? "https://sadev-wills.vercel.app" // In production, be specific
+        ? ["https://sadev-wills.vercel.app", "https://fast-marlin.vercel.app"] // In production, be specific
         : origins; // In development, allow both
 };
 // Register the CORS plugin after cookies
@@ -123,7 +123,7 @@ app.post("/login", (request, reply) => __awaiter(void 0, void 0, void 0, functio
                 httpOnly: true,
                 path: "/",
                 sameSite: isProduction ? "none" : "lax",
-                domain: isProduction ? '.vercel.app' : 'localhost',
+                domain: isProduction ? '*' : 'localhost',
                 maxAge: 60 * 60 * 1000, // 1 hours in milisecond
             });
             return reply.send({ status: "success" });
