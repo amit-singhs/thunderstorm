@@ -184,7 +184,7 @@ app.post(
           httpOnly: true,
           path: "/",
           sameSite: isProduction ? "none" : "lax",
-          domain: isProduction ? '*.vercel.app' : 'localhost',
+          domain: isProduction ? 'vercel.app' : 'localhost',
           maxAge: 60 * 60 * 1000, // 1 hours in milisecond
         });
 
