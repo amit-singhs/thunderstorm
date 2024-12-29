@@ -176,6 +176,7 @@ app.post(
       let newToken = "";
       try {
         newToken = generateToken({ email, id: existingData.id }, "1h");
+        console.log("From index.ts, line 179, process.env.NODE_ENV is EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE : ", process.env.NODE_ENV);
         const isProduction = process.env.NODE_ENV === "production";
         // Set the cookie
         reply.setCookie("access-token", newToken, {
@@ -183,7 +184,7 @@ app.post(
           httpOnly: true,
           path: "/",
           sameSite: isProduction ? "none" : "lax",
-          domain: isProduction ? "sadev-wills.vercel.app" : "localhost",
+          domain: isProduction ? '.vercel.app' : 'localhost',
           maxAge: 60 * 60 * 1000, // 1 hours in milisecond
         });
 
