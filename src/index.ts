@@ -869,7 +869,7 @@ app.post("/create-order", async (request, reply: FastifyReply) => {
       amount: amount * 100, // Amount in paise
       currency: "INR",
       receipt: receipt,
-      payment_capture: 1, // Auto-capture payment
+      payment_capture: amount, // Auto-capture payment
     };
 
     const order = await razorpay.orders.create(options);
