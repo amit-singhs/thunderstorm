@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 
 type UserPaylod = {
   id: string;
@@ -18,21 +18,21 @@ const getSecret = () => {
 // Function to generate JWT
 export const generateToken = (
   payload: object,
-  expiresIn: string | number = "1h"
-) => {
+  expiresIn: SignOptions["expiresIn"] = "1h"
+): string => {
   const secret = getSecret();
   return jwt.sign(payload, secret, { expiresIn });
 };
 
 // Function to verify JWT
-export const verifyToken = (token: string): Promise<any> => {
+export const verifyToken = (token: string): Promise<UserPaylod> => {
   return new Promise((resolve, reject) => {
     const secret = getSecret();
     jwt.verify(token, secret, (err, decoded) => {
       if (err) {
         return reject(err);
       }
-      resolve(decoded as UserPaylod);
+      resolve(decoded as UserPaylod); // Explicitly assert the type here
     });
   });
 };

@@ -1,4 +1,6 @@
 import { FastifyReply, FastifyRequest } from "fastify";
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Middleware to check for API key
 export const apiKeyMiddleware = (
@@ -6,14 +8,8 @@ export const apiKeyMiddleware = (
   reply: FastifyReply,
   done: () => void
 ) => {
-  
-  // Skip the middleware for the verification route
-  if (request.raw.url?.startsWith("/verify-email/")) {
-    return done(); // Return early if it matches
-  }
-  
+    
   const apiKey = request.headers["x-api-key"];
-
   // Check if the API key is provided and valid
   if (!apiKey || apiKey !== process.env.API_KEY) {
     return reply.status(403).send({ error: "Forbidden: Invalid API Key" });

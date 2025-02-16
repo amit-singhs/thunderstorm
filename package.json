@@ -15,10 +15,10 @@
     "@fastify/rate-limit": "10.0.1",
     "@supabase/supabase-js": "^2.45.4",
     "dotenv": "^16.4.5",
+    "esbuild": "^0.25.0",
     "fastify": "^5.0.0",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^6.9.15",
-    "razorpay": "^2.9.4"
+    "nodemailer": "^6.9.15"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.6",

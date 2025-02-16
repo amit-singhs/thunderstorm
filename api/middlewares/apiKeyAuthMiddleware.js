@@ -1,13 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.apiKeyMiddleware = void 0;
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
 // Middleware to check for API key
 const apiKeyMiddleware = (request, reply, done) => {
-    var _a;
-    // Skip the middleware for the verification route
-    if ((_a = request.raw.url) === null || _a === void 0 ? void 0 : _a.startsWith("/verify-email/")) {
-        return done(); // Return early if it matches
-    }
     const apiKey = request.headers["x-api-key"];
     // Check if the API key is provided and valid
     if (!apiKey || apiKey !== process.env.API_KEY) {

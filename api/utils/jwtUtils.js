@@ -26,7 +26,7 @@ const verifyToken = (token) => {
             if (err) {
                 return reject(err);
             }
-            resolve(decoded);
+            resolve(decoded); // Explicitly assert the type here
         });
     });
 };
