@@ -4,7 +4,6 @@ import { JwtPayload, TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
 import supabase from "./supabaseClient";
 import rateLimit from "@fastify/rate-limit";
 import fastifyCookie from "@fastify/cookie";
-import Razorpay from "razorpay";
 const app = Fastify({
   logger: true,
   maxParamLength: 300,
