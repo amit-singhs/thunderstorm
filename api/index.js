@@ -58,35 +58,35 @@ app.get("/", (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
 // Key Management Routes
 app.post('/api/keys/setup', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { publicKey, pinHash, userId } = request.body;
+        const { publicKey, pinHash, authId } = request.body;
         const { data, error } = yield supabaseClient_1.default
             .from('user_keys')
             .insert([
             {
-                user_id: userId,
+                auth_id: authId,
                 public_key: publicKey,
                 pin_hash: pinHash,
                 is_active: true,
             },
         ])
-            .select('id')
+            .select('key_id')
             .single();
         if (error)
             throw error;
-        return reply.status(201).send({ keyId: data.id });
+        return reply.status(201).send({ userId: data.key_id });
     }
     catch (error) {
         request.log.error(error);
         return reply.status(500).send({ error: 'Failed to setup key' });
     }
 }));
-app.get('/api/keys/active', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+app.get('/api/keys/active/:authId', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const user_id = request.user.id;
+        const { authId } = request.params; // Get userId from params
         const { data, error } = yield supabaseClient_1.default
             .from('user_keys')
-            .select('id, public_key')
-            .eq('user_id', user_id)
+            .select('key_id, public_key')
+            .eq('auth_id', authId) // Use the userId from params
             .eq('is_active', true)
             .single();
         if (error)
@@ -94,7 +94,7 @@ app.get('/api/keys/active', (request, reply) => __awaiter(void 0, void 0, void 0
         if (!data)
             return reply.status(404).send({ error: 'No active key found' });
         return reply.send({
-            keyId: data.id,
+            keyId: data.key_id,
             publicKey: data.public_key,
         });
     }
@@ -103,36 +103,64 @@ app.get('/api/keys/active', (request, reply) => __awaiter(void 0, void 0, void 0
         return reply.status(500).send({ error: 'Failed to fetch active key' });
     }
 }));
-app.post('/api/keys/rotate', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+app.post('/api/keys/generateNew', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { publicKey, pinHash } = request.body;
-        const user_id = request.user.id;
-        // Start a transaction to update old keys and insert new one
-        const { data, error } = yield supabaseClient_1.default.rpc('rotate_user_key', {
-            p_user_id: user_id,
-            p_public_key: publicKey,
-            p_pin_hash: pinHash,
-        });
+        const { publicKey, pinHash, authId } = request.body;
+        const { data, error } = yield supabaseClient_1.default
+            .from('user_keys')
+            .insert([
+            {
+                auth_id: authId,
+                public_key: publicKey,
+                pin_hash: pinHash,
+                is_active: true,
+            },
+        ])
+            .select('key_id')
+            .single();
         if (error)
             throw error;
-        return reply.status(201).send({ keyId: data.id });
+        return reply.status(201).send({ keyId: data.key_id });
     }
     catch (error) {
-        request.log.error(error);
         return reply.status(500).send({ error: 'Failed to rotate key' });
+    }
+}));
+// Add this after your other key management routes
+app.post('/api/keys/deactivate', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { authId } = request.body;
+        const { data, error } = yield supabaseClient_1.default
+            .from('user_keys')
+            .update({ is_active: false })
+            .eq('auth_id', authId)
+            .eq('is_active', true)
+            .select('is_active')
+            .single();
+        if (error)
+            throw error;
+        if (!data)
+            return reply.status(404).send({ error: 'No active key found' });
+        return reply.status(200).send({
+            isActive: data.is_active
+        });
+    }
+    catch (error) {
+        request.log.error('Error deactivating keys:', error);
+        return reply.status(500).send({ error: 'Failed to deactivate keys' });
     }
 }));
 // Document Signing Routes
 app.post('/api/documents/sign', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { documentId, signature, keyId } = request.body;
-        const user_id = request.user.id;
+        // const user_id = request.user.id;
         // Verify the key belongs to the user
         const { data: keyData, error: keyError } = yield supabaseClient_1.default
             .from('user_keys')
-            .select('id')
-            .eq('id', keyId)
-            .eq('user_id', user_id)
+            .select('auth_id')
+            .eq('key_id', keyId)
+            .eq('is_active', true)
             .single();
         if (keyError || !keyData) {
             return reply.status(403).send({ error: 'Invalid key ID' });
@@ -142,7 +170,7 @@ app.post('/api/documents/sign', (request, reply) => __awaiter(void 0, void 0, vo
             .insert([
             {
                 document_id: documentId,
-                signer_id: user_id,
+                signer_id: keyData.auth_id,
                 signature,
                 key_id: keyId,
             },

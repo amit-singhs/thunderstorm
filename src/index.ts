@@ -60,40 +60,40 @@ app.get("/", async (req: FastifyRequest, reply: FastifyReply) => {
 // Key Management Routes
 app.post<{ Body: KeySetupRequest }>('/api/keys/setup', async (request, reply) => {
   try {
-    const { publicKey, pinHash, userId } = request.body;
+    const { publicKey, pinHash, authId } = request.body;
 
     const { data, error } = await supabase
       .from('user_keys')
       .insert([
         {
-          user_id : userId,
+          auth_id : authId,
           public_key: publicKey,
           pin_hash: pinHash,
           is_active: true,
         },
       ])
-      .select('id')
+      .select('key_id')
       .single();
 
     if (error) throw error;
 
-    return reply.status(201).send({ keyId: data.id });
+    return reply.status(201).send({ userId: data.key_id });
   } catch (error) {
     request.log.error(error);
     return reply.status(500).send({ error: 'Failed to setup key' });
   }
 });
 
-app.get<{ Params: { userId: string }, Reply: ActiveKeyResponse }>(
-  '/api/keys/active/:userId', 
+app.get<{ Params: { authId: string }, Reply: ActiveKeyResponse }>(
+  '/api/keys/active/:authId', 
   async (request, reply) => {
     try {
-      const { userId } = request.params;  // Get userId from params
+      const { authId } = request.params;  // Get userId from params
 
       const { data, error } = await supabase
         .from('user_keys')
-        .select('id, public_key')
-        .eq('user_id', userId)  // Use the userId from params
+        .select('key_id, public_key')
+        .eq('auth_id', authId)  // Use the userId from params
         .eq('is_active', true)
         .single();
 
@@ -101,7 +101,7 @@ app.get<{ Params: { userId: string }, Reply: ActiveKeyResponse }>(
       if (!data) return reply.status(404).send({ error: 'No active key found' });
 
       return reply.send({
-        keyId: data.id,
+        keyId: data.key_id,
         publicKey: data.public_key,
       });
     } catch (error) {
@@ -110,24 +110,52 @@ app.get<{ Params: { userId: string }, Reply: ActiveKeyResponse }>(
     }
 });
 
-app.post<{ Body: KeySetupRequest }>('/api/keys/rotate', async (request, reply) => {
+app.post<{ Body: KeySetupRequest }>('/api/keys/generateNew', async (request, reply) => {
   try {
-    const { publicKey, pinHash } = request.body;
-    const user_id = request.user.id;
-
-    // Start a transaction to update old keys and insert new one
-    const { data, error } = await supabase.rpc('rotate_user_key', {
-      p_user_id: user_id,
-      p_public_key: publicKey,
-      p_pin_hash: pinHash,
-    });
+    const { publicKey, pinHash, authId } = request.body;
+    const { data, error } = await supabase
+      .from('user_keys')
+      .insert([
+        {
+          auth_id : authId,
+          public_key: publicKey,
+          pin_hash: pinHash,
+          is_active: true,
+        },
+      ])
+      .select('key_id')
+      .single();
 
     if (error) throw error;
 
-    return reply.status(201).send({ keyId: data.id });
+    return reply.status(201).send({ keyId: data.key_id });
   } catch (error) {
-    request.log.error(error);
     return reply.status(500).send({ error: 'Failed to rotate key' });
+  }
+});
+
+// Add this after your other key management routes
+app.post<{ Body: { authId: string } }>('/api/keys/deactivate', async (request, reply) => {
+  try {
+    const { authId } = request.body;
+
+    const { data, error } = await supabase
+      .from('user_keys')
+      .update({ is_active: false })
+      .eq('auth_id', authId)
+      .eq('is_active', true)
+      .select('is_active')
+      .single();
+
+    if (error) throw error;
+    if (!data) return reply.status(404).send({ error: 'No active key found' });
+
+    return reply.status(200).send({ 
+      isActive: data.is_active 
+    });
+  } catch (error) {
+    request.log.error('Error deactivating keys:', error);
+    return reply.status(500).send({ error: 'Failed to deactivate keys' });
   }
 });
 
@@ -135,14 +163,14 @@ app.post<{ Body: KeySetupRequest }>('/api/keys/rotate', async (request, reply) =
 app.post<{ Body: DocumentSignRequest }>('/api/documents/sign', async (request, reply) => {
   try {
     const { documentId, signature, keyId } = request.body;
-    const user_id = request.user.id;
+    // const user_id = request.user.id;
 
     // Verify the key belongs to the user
     const { data: keyData, error: keyError } = await supabase
       .from('user_keys')
-      .select('id')
-      .eq('id', keyId)
-      .eq('user_id', user_id)
+      .select('auth_id')
+      .eq('key_id', keyId)
+      .eq('is_active', true)
       .single();
 
     if (keyError || !keyData) {
@@ -154,7 +182,7 @@ app.post<{ Body: DocumentSignRequest }>('/api/documents/sign', async (request, r
       .insert([
         {
           document_id: documentId,
-          signer_id: user_id,
+          signer_id: keyData.auth_id,
           signature,
           key_id: keyId,
         },

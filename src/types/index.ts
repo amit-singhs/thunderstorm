@@ -1,7 +1,7 @@
 export interface KeySetupRequest {
   publicKey: string;
   pinHash: string;
-  userId: string;
+  authId: string;
 }
 
 export interface KeyResponse {
@@ -41,6 +41,10 @@ export interface AuthenticatedRequest {
     id: string;
     // add other user properties if needed
   };
+}
+
+export interface DeactivateKeyRequest {
+  authId: string;
 }
 
 declare module 'fastify' {
