@@ -84,28 +84,30 @@ app.post<{ Body: KeySetupRequest }>('/api/keys/setup', async (request, reply) =>
   }
 });
 
-app.get<{ Reply: ActiveKeyResponse }>('/api/keys/active', async (request, reply) => {
-  try {
-    const user_id = request.user.id;
+app.get<{ Params: { userId: string }, Reply: ActiveKeyResponse }>(
+  '/api/keys/active/:userId', 
+  async (request, reply) => {
+    try {
+      const { userId } = request.params;  // Get userId from params
 
-    const { data, error } = await supabase
-      .from('user_keys')
-      .select('id, public_key')
-      .eq('user_id', user_id)
-      .eq('is_active', true)
-      .single();
+      const { data, error } = await supabase
+        .from('user_keys')
+        .select('id, public_key')
+        .eq('user_id', userId)  // Use the userId from params
+        .eq('is_active', true)
+        .single();
 
-    if (error) throw error;
-    if (!data) return reply.status(404).send({ error: 'No active key found' });
+      if (error) throw error;
+      if (!data) return reply.status(404).send({ error: 'No active key found' });
 
-    return reply.send({
-      keyId: data.id,
-      publicKey: data.public_key,
-    });
-  } catch (error) {
-    request.log.error(error);
-    return reply.status(500).send({ error: 'Failed to fetch active key' });
-  }
+      return reply.send({
+        keyId: data.id,
+        publicKey: data.public_key,
+      });
+    } catch (error) {
+      request.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch active key' });
+    }
 });
 
 app.post<{ Body: KeySetupRequest }>('/api/keys/rotate', async (request, reply) => {
