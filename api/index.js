@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const fastify_1 = __importDefault(require("fastify"));
 const apiKeyAuthMiddleware_1 = __importDefault(require("./middlewares/apiKeyAuthMiddleware"));
+const supabaseClient_1 = __importDefault(require("./supabaseClient"));
 const rate_limit_1 = __importDefault(require("@fastify/rate-limit"));
 const cookie_1 = __importDefault(require("@fastify/cookie"));
 const app = (0, fastify_1.default)({
@@ -53,6 +54,175 @@ app.get("/welcome", (req, reply) => __awaiter(void 0, void 0, void 0, function* 
 // Define the root route
 app.get("/", (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
     return reply.status(200).type("text/html").send("Welcome to the root route of The Thunderstorm.");
+}));
+// Key Management Routes
+app.post('/api/keys/setup', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { publicKey, pinHash, authId } = request.body;
+        const { data, error } = yield supabaseClient_1.default
+            .from('user_keys')
+            .insert([
+            {
+                auth_id: authId,
+                public_key: publicKey,
+                pin_hash: pinHash,
+                is_active: true,
+            },
+        ])
+            .select('key_id')
+            .single();
+        if (error)
+            throw error;
+        return reply.status(201).send({ userId: data.key_id });
+    }
+    catch (error) {
+        request.log.error(error);
+        return reply.status(500).send({ error: 'Failed to setup key' });
+    }
+}));
+app.get('/api/keys/active/:authId', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { authId } = request.params; // Get userId from params
+        const { data, error } = yield supabaseClient_1.default
+            .from('user_keys')
+            .select('key_id, public_key')
+            .eq('auth_id', authId) // Use the userId from params
+            .eq('is_active', true)
+            .single();
+        if (error)
+            throw error;
+        if (!data)
+            return reply.status(404).send({ error: 'No active key found' });
+        return reply.send({
+            keyId: data.key_id,
+            publicKey: data.public_key,
+        });
+    }
+    catch (error) {
+        request.log.error(error);
+        return reply.status(500).send({ error: 'Failed to fetch active key' });
+    }
+}));
+app.post('/api/keys/generateNew', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { publicKey, pinHash, authId } = request.body;
+        const { data, error } = yield supabaseClient_1.default
+            .from('user_keys')
+            .insert([
+            {
+                auth_id: authId,
+                public_key: publicKey,
+                pin_hash: pinHash,
+                is_active: true,
+            },
+        ])
+            .select('key_id')
+            .single();
+        if (error)
+            throw error;
+        return reply.status(201).send({ keyId: data.key_id });
+    }
+    catch (error) {
+        return reply.status(500).send({ error: 'Failed to rotate key' });
+    }
+}));
+// Add this after your other key management routes
+app.post('/api/keys/deactivate', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { authId } = request.body;
+        const { data, error } = yield supabaseClient_1.default
+            .from('user_keys')
+            .update({ is_active: false })
+            .eq('auth_id', authId)
+            .eq('is_active', true)
+            .select('is_active')
+            .single();
+        if (error)
+            throw error;
+        if (!data)
+            return reply.status(404).send({ error: 'No active key found' });
+        return reply.status(200).send({
+            isActive: data.is_active
+        });
+    }
+    catch (error) {
+        request.log.error('Error deactivating keys:', error);
+        return reply.status(500).send({ error: 'Failed to deactivate keys' });
+    }
+}));
+// Document Signing Routes
+app.post('/api/documents/sign', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { documentId, signature, keyId } = request.body;
+        // const user_id = request.user.id;
+        // Verify the key belongs to the user
+        const { data: keyData, error: keyError } = yield supabaseClient_1.default
+            .from('user_keys')
+            .select('auth_id')
+            .eq('key_id', keyId)
+            .eq('is_active', true)
+            .single();
+        if (keyError || !keyData) {
+            return reply.status(403).send({ error: 'Invalid key ID' });
+        }
+        const { data, error } = yield supabaseClient_1.default
+            .from('document_signatures')
+            .insert([
+            {
+                document_id: documentId,
+                signer_id: keyData.auth_id,
+                signature,
+                key_id: keyId,
+            },
+        ])
+            .select('id')
+            .single();
+        if (error)
+            throw error;
+        return reply.status(201).send({
+            success: true,
+            signatureId: data.id,
+        });
+    }
+    catch (error) {
+        request.log.error(error);
+        return reply.status(500).send({ error: 'Failed to sign document' });
+    }
+}));
+app.get('/api/documents/verify/:documentId', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c;
+    try {
+        const { documentId } = request.params;
+        const { data, error } = yield supabaseClient_1.default
+            .from('document_signatures')
+            .select(`
+        id,
+        signature,
+        signed_at,
+        signer_id,
+        user_keys (
+          public_key
+        )
+      `)
+            .eq('document_id', documentId)
+            .single();
+        if (error)
+            throw error;
+        if (!data)
+            return reply.status(404).send({ error: 'Signature not found' });
+        return reply.send({
+            isValid: true, // You might want to add additional validation logic here
+            signerInfo: {
+                userId: data.signer_id,
+                signedAt: data.signed_at,
+                publicKey: (_c = (_b = (_a = data.user_keys) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.public_key) !== null && _c !== void 0 ? _c : null
+            },
+        });
+    }
+    catch (error) {
+        request.log.error(error);
+        return reply.status(500).send({ error: 'Failed to verify document' });
+    }
 }));
 // Export the Fastify instance as a Vercel function
 function handler(req, res) {
